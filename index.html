@@ -422,10 +422,10 @@ function loadState(){
 }
 
 // =====================================================
-// AI GRADING via Puter.js (no API key needed)
-// Returns: { correct: bool, feedback: string, source: 'ai'|'fallback' }
+// AI GRADING via Puter.js with OpenAI model (NO Anthropic)
+// Returns: { correct: bool, feedback: string }
 // =====================================================
-async function gradeAnswerWithAI(q, userAnswer) {
+async function gradeAnswerWithAI(q, userAnswer, maxRetries = 3) {
   // Strip HTML from question text for cleaner prompt
   const plainQuestion = q.text
     .replace(/<code>(.*?)<\/code>/g, '`$1`')
@@ -457,68 +457,63 @@ GRADING RULES:
 Respond with EXACTLY ONE WORD: YES if correct, NO if incorrect.
 Do NOT add any explanation, punctuation, or additional text. Just YES or NO.`;
 
-  try {
-    if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
-      throw new Error('Puter AI not available');
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
+        throw new Error('Puter AI not available. Please refresh the page.');
+      }
+
+      // Use OpenAI model (NOT Anthropic)
+      const aiCall = puter.ai.chat(prompt, { model: 'openai/gpt-5.4-nano' });
+      
+      // Race against timeout (30s)
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI grading timeout')), 30000)
+      );
+
+      const response = await Promise.race([aiCall, timeout]);
+
+      // Parse response
+      let text = '';
+      if (typeof response === 'string') {
+        text = response;
+      } else if (response && response.message && response.message.content) {
+        text = response.message.content;
+      } else if (response && response.text) {
+        text = response.text;
+      } else {
+        text = String(response);
+      }
+
+      const upper = text.toUpperCase().trim();
+      
+      // Extract YES or NO from response
+      const isYes = /\bYES\b/.test(upper);
+      const isNo = /\bNO\b/.test(upper);
+
+      if (isYes && !isNo) {
+        return { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
+      } else if (isNo) {
+        return { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
+      } else {
+        console.warn(`AI attempt ${attempt + 1} returned unclear response:`, text);
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+          continue;
+        }
+      }
+    } catch (err) {
+      console.error(`AI grading attempt ${attempt + 1} failed:`, err);
+      if (attempt < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+        continue;
+      }
+      // On final failure, throw error instead of falling back
+      throw new Error(`AI grading failed after ${maxRetries} attempts. Please try again.`);
     }
-
-    // Race against timeout (30s)
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI grading timeout')), 30000)
-    );
-
-    const aiCall = puter.ai.chat(prompt);
-    const response = await Promise.race([aiCall, timeout]);
-
-    // Response can be string or object with .message.content
-    let text = '';
-    if (typeof response === 'string') {
-      text = response;
-    } else if (response && response.message && response.message.content) {
-      text = response.message.content;
-    } else if (response && response.text) {
-      text = response.text;
-    } else {
-      text = String(response);
-    }
-
-    const upper = text.toUpperCase().trim();
-    // Extract YES or NO from response
-    const isYes = /\bYES\b/.test(upper);
-    const isNo = /\bNO\b/.test(upper);
-
-    if (isYes && !isNo) {
-      return { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
-    } else if (isNo) {
-      return { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
-    } else {
-      // Unclear response, fall back
-      console.warn('AI returned unclear response:', text);
-      return fallbackGrade(q, userAnswer);
-    }
-  } catch (err) {
-    console.warn('AI grading failed, using fallback:', err);
-    return fallbackGrade(q, userAnswer);
   }
-}
-
-// Fallback: keyword-based (used if AI unavailable)
-function fallbackGrade(q, userAnswer) {
-  if (!userAnswer || userAnswer.trim().length < 5) {
-    return { correct: false, feedback: 'Réponse trop courte ou vide. (Fallback mode)', source: 'fallback' };
-  }
-  const userLower = userAnswer.toLowerCase().replace(/\s+/g,' ');
-  const keywords = q.answer_keywords || [];
-  let hits = 0;
-  for (const kw of keywords) {
-    if (userLower.includes(kw.toLowerCase())) hits++;
-  }
-  const threshold = Math.max(1, Math.ceil(keywords.length * 0.7));
-  const correct = hits >= threshold;
-  const feedback = correct
-    ? `[Fallback] ${hits}/${keywords.length} mots-clés trouvés.`
-    : `[Fallback] Seulement ${hits}/${keywords.length} mots-clés.`;
-  return { correct, feedback, source: 'fallback' };
+  
+  throw new Error('AI grading failed to produce a clear result. Please try again.');
 }
 
 // =====================================================
@@ -2906,7 +2901,7 @@ function toggleHint(qid){
 }
 
 // =====================================================
-// CHECK ANSWER — Uses Puter AI for input boxes
+// CHECK ANSWER — Uses Puter AI (OpenAI model, NO Anthropic)
 // =====================================================
 async function checkAnswer(qid, subjectId){
   playClick();
@@ -2937,49 +2932,66 @@ async function checkAnswer(qid, subjectId){
     <div>🤖 <strong>IA en cours d'analyse</strong><span class="ai-dots"></span></div>
   </div>`;
 
-  // Call AI
-  const result = await gradeAnswerWithAI(q, userVal);
-  const correct = result.correct;
+  try {
+    // Call AI with retries
+    const result = await gradeAnswerWithAI(q, userVal);
+    const correct = result.correct;
 
-  const wasAnswered = !!state.answered[qid];
-  const prev = state.answered[qid];
+    const wasAnswered = !!state.answered[qid];
+    const prev = state.answered[qid];
 
-  const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
-  const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
-  
-  if (!wasAnswered || wasRevealedOnly) {
-    state.answered[qid] = { correct, value: userVal, feedback: result.feedback, source: result.source };
-  } else {
-    state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback, source: result.source };
-  }
-  saveState();
-
-  // Re-enable button
-  if (checkBtn) {
-    checkBtn.disabled = false;
-    checkBtn.innerHTML = '✓ Vérifier <span class="ai-badge">AI</span>';
-  }
-
-  if (correct) {
-    fb.className = 'feedback show correct';
-    fb.innerHTML = renderFeedbackHTML(q, true, userVal, result.feedback);
-    block.className = 'question-block answered-correct';
-    if (!wasAttempted) {
-      playSuccess();
-      streak++;
-      const rect = input.getBoundingClientRect();
-      launchConfetti(rect.left + rect.width / 2, rect.top);
-      const msgs = ['Parfait ! 🎯', 'Excellent ! 💪', 'Bravo ! 🔥', 'Super ! ⭐'];
-      setTimeout(() => showStreak(wasRevealedOnly ? 'Bonne réponse après consultation ! 🎯' : msgs[Math.min(streak - 1, msgs.length - 1)], '🎉'), 200);
+    const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
+    const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
+    
+    if (!wasAnswered || wasRevealedOnly) {
+      state.answered[qid] = { correct, value: userVal, feedback: result.feedback, source: result.source };
+    } else {
+      state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback, source: result.source };
     }
-  } else {
+    saveState();
+
+    // Re-enable button
+    if (checkBtn) {
+      checkBtn.disabled = false;
+      checkBtn.innerHTML = '✓ Vérifier <span class="ai-badge">AI</span>';
+    }
+
+    if (correct) {
+      fb.className = 'feedback show correct';
+      fb.innerHTML = renderFeedbackHTML(q, true, userVal, result.feedback);
+      block.className = 'question-block answered-correct';
+      if (!wasAttempted) {
+        playSuccess();
+        streak++;
+        const rect = input.getBoundingClientRect();
+        launchConfetti(rect.left + rect.width / 2, rect.top);
+        const msgs = ['Parfait ! 🎯', 'Excellent ! 💪', 'Bravo ! 🔥', 'Super ! ⭐'];
+        setTimeout(() => showStreak(wasRevealedOnly ? 'Bonne réponse après consultation ! 🎯' : msgs[Math.min(streak - 1, msgs.length - 1)], '🎉'), 200);
+      }
+    } else {
+      fb.className = 'feedback show wrong';
+      fb.innerHTML = renderFeedbackHTML(q, false, userVal, result.feedback);
+      block.className = 'question-block answered-wrong';
+      if (!wasAnswered) { playFail(); streak = 0; showStreak('Pas encore… Réessaie ou regarde la correction !', '💪'); }
+    }
+    updateScoreDisplay();
+    renderGrid();
+  } catch (error) {
+    // Handle AI failure
+    console.error('AI grading error:', error);
+    
+    // Re-enable button
+    if (checkBtn) {
+      checkBtn.disabled = false;
+      checkBtn.innerHTML = '✓ Vérifier <span class="ai-badge">AI</span>';
+    }
+    
+    // Show error message
     fb.className = 'feedback show wrong';
-    fb.innerHTML = renderFeedbackHTML(q, false, userVal, result.feedback);
-    block.className = 'question-block answered-wrong';
-    if (!wasAnswered) { playFail(); streak = 0; showStreak('Pas encore… Réessaie ou regarde la correction !', '💪'); }
+    fb.innerHTML = `<div class="feedback-title">❌ Erreur de l'IA</div>
+    <p>Impossible d'évaluer votre réponse avec l'IA. ${error.message}</p>
+    <p>Veuillez réessayer ou rafraîchir la page si le problème persiste.</p>`;
   }
-  updateScoreDisplay();
-  renderGrid();
 }
 
 function revealAnswer(qid, subjectId){
