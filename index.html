@@ -25,7 +25,7 @@ body.light .q-header{background:#f0f0f0}
 body.light .q-text{color:#000}
 body.light .q-text code{background:#eee;color:#003388}
 body.light .question-block{background:#fafafa;border:2px solid var(--border)}
-body.light textarea.code-input{background:#0a0a0a;color:#e0e0e0;border:2px solid #ccc}
+body.light textarea.code-input{background:#0a0a0a;color:transparent;border:2px solid #ccc}
 body.light textarea.text-input{background:#fff;color:#000;border:2px solid #ccc}
 body.light .mc-option{border:2px solid #ccc;color:#000}
 body.light .mc-option:hover{border-color:#888;background:#f0f0f0}
@@ -102,10 +102,105 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .q-text pre{background:#000;color:#00ff88;padding:12px;border-radius:8px;font-size:.78rem;overflow-x:auto;margin:8px 0;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
 .code-area-wrap{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
 .code-label{font-family:var(--mono);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666}
-textarea.code-input{width:100%;min-height:130px;font-family:var(--mono);font-size:.82rem;padding:12px 14px;border:2px solid var(--border);border-radius:8px;background:#000;color:#e0e0e0;resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;tab-size:4;line-height:1.6}
-textarea.code-input:focus{border-color:var(--b);box-shadow:0 0 0 3px #0088ff22}
+/* ===== CODE EDITOR (VS Code / Spyder style) ===== */
+.code-editor-wrap{
+  display:flex;
+  border:2px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+  background:#000;
+  position:relative;
+  transition:border-color .2s, box-shadow .2s;
+}
+body.light .code-editor-wrap{background:#0a0a0a;border-color:#ccc}
+.code-editor-wrap.focused{border-color:var(--b);box-shadow:0 0 0 3px #0088ff22}
+.code-gutter{
+  background:#0a0a0a;
+  color:#555;
+  padding:12px 6px 12px 10px;
+  font-family:var(--mono);
+  font-size:.82rem;
+  line-height:1.6;
+  text-align:right;
+  user-select:none;
+  min-width:38px;
+  white-space:pre;
+  overflow:hidden;
+  border-right:1px solid #1a1a1a;
+}
+body.light .code-gutter{background:#0d0d0d;color:#666;border-right-color:#222}
+.code-main{
+  flex:1;
+  position:relative;
+  min-width:0;
+}
+.code-highlight{
+  position:absolute;
+  top:0;left:0;right:0;bottom:0;
+  margin:0;
+  padding:12px 14px;
+  font-family:var(--mono);
+  font-size:.82rem;
+  line-height:1.6;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow-wrap:break-word;
+  pointer-events:none;
+  overflow:hidden;
+  color:#e0e0e0;
+  tab-size:4;
+}
+.code-highlight .hl-kw{color:#cc7aff;font-weight:700}
+.code-highlight .hl-str{color:#a6e22e}
+.code-highlight .hl-com{color:#6a737d;font-style:italic}
+.code-highlight .hl-num{color:#fd971f}
+.code-highlight .hl-bi{color:#66d9ef}
+.code-highlight .hl-dec{color:#f92672}
+.code-highlight .hl-self{color:#f92672;font-style:italic}
+body.light .code-highlight .hl-kw{color:#a135e0}
+body.light .code-highlight .hl-str{color:#3a8a1e}
+body.light .code-highlight .hl-com{color:#888}
+body.light .code-highlight .hl-num{color:#c4600a}
+body.light .code-highlight .hl-bi{color:#0077aa}
+body.light .code-highlight .hl-dec{color:#c41e5c}
+body.light .code-highlight .hl-self{color:#c41e5c}
+textarea.code-input{
+  width:100%;
+  min-height:130px;
+  font-family:var(--mono);
+  font-size:.82rem;
+  padding:12px 14px;
+  border:none;
+  background:transparent;
+  color:transparent;
+  caret-color:#fff;
+  resize:vertical;
+  outline:none;
+  tab-size:4;
+  line-height:1.6;
+  white-space:pre-wrap;
+  word-break:break-word;
+  overflow-wrap:break-word;
+  position:relative;
+  z-index:2;
+  margin:0;
+  border-radius:0;
+}
+body.light textarea.code-input{caret-color:#fff}
+textarea.code-input::selection{background:#0088ff55;color:transparent}
 textarea.text-input{width:100%;min-height:80px;font-family:var(--sans);font-size:.88rem;padding:10px 12px;border:2px solid var(--border);border-radius:8px;background:#000;color:var(--text);resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.6}
 textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
+.editor-statusbar{
+  display:flex;
+  justify-content:space-between;
+  font-family:var(--mono);
+  font-size:.65rem;
+  color:#555;
+  padding:3px 10px;
+  background:#0a0a0a;
+  border-top:1px solid #1a1a1a;
+}
+body.light .editor-statusbar{background:#0d0d0d;color:#aaa;border-top-color:#222}
 .mc-wrap{display:flex;flex-direction:column;gap:8px}
 .mc-option{display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;user-select:none;font-size:.88rem;color:var(--text)}
 .mc-option:hover{border-color:#555;background:#1a1a1a}
@@ -224,23 +319,34 @@ let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 
 // =====================================================
-// SCORE
+// SCORE / PROGRESS
+// Completed = unique questions in state.answered (any status)
+// Total = all questions across all subjects
 // =====================================================
-let totalAnswered=0,totalCorrect=0,totalQuestions=0;
-function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress();saveState()}
-function updateProgress(){const pct=totalQuestions>0?Math.round(totalAnswered/totalQuestions*100):0;document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('progress-pct').textContent=pct+'%'}
+let totalQuestions=0;
+function getCompletedCount(){
+  return Object.keys(state.answered).length;
+}
+function updateScoreDisplay(){
+  const completed = getCompletedCount();
+  document.getElementById('score-display').textContent = `⚡ ${completed} / ${totalQuestions}`;
+  updateProgress();
+}
+function updateProgress(){
+  const pct = totalQuestions > 0 ? Math.round(getCompletedCount() / totalQuestions * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent = pct + '%';
+}
 
 // =====================================================
 // PERSISTENCE
 // =====================================================
-const STORAGE_KEY='nsi_bns_2026_state_v1';
+const STORAGE_KEY='nsi_bns_2026_state_v2';
 const THEME_KEY='nsi_bns_2026_theme_v1';
 function saveState(){
   try{
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       answered: state.answered,
-      totalAnswered,
-      totalCorrect,
       currentSubject: state.currentSubject
     }));
   }catch(e){}
@@ -253,8 +359,6 @@ function loadState(){
     if(data && typeof data.answered==='object' && data.answered!==null){
       state.answered=data.answered;
     }
-    if(typeof data.totalAnswered==='number') totalAnswered=data.totalAnswered;
-    if(typeof data.totalCorrect==='number') totalCorrect=data.totalCorrect;
     if(typeof data.currentSubject==='number') state.currentSubject=data.currentSubject;
   }catch(e){}
 }
@@ -278,6 +382,321 @@ function checkAnswer_local(q, userAnswer) {
     ? `${hits}/${keywords.length} éléments clés trouvés dans votre réponse. ✅`
     : `Seulement ${hits}/${keywords.length} éléments clés. Vérifiez la correction officielle.`;
   return { correct, feedback };
+}
+
+// =====================================================
+// PYTHON SYNTAX HIGHLIGHTING
+// =====================================================
+const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
+const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError'];
+
+function escapeHtml(s){
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function highlightPython(code){
+  // Tokenize: scan character by character, producing tokens with types
+  const tokens = [];
+  let i = 0;
+  const n = code.length;
+  while (i < n) {
+    const c = code[i];
+    // Comments
+    if (c === '#') {
+      let j = i;
+      while (j < n && code[j] !== '\n') j++;
+      tokens.push({type:'com', text: code.slice(i, j)});
+      i = j;
+      continue;
+    }
+    // Triple-quoted strings
+    if ((c === '"' && code.substr(i, 3) === '"""') || (c === "'" && code.substr(i, 3) === "'''")) {
+      const quote = code.substr(i, 3);
+      let j = i + 3;
+      while (j < n) {
+        if (code[j] === '\\') { j += 2; continue; }
+        if (code.substr(j, 3) === quote) { j += 3; break; }
+        j++;
+      }
+      tokens.push({type:'str', text: code.slice(i, j)});
+      i = j;
+      continue;
+    }
+    // Single-line strings
+    if (c === '"' || c === "'") {
+      const quote = c;
+      let j = i + 1;
+      while (j < n && code[j] !== '\n') {
+        if (code[j] === '\\') { j += 2; continue; }
+        if (code[j] === quote) { j++; break; }
+        j++;
+      }
+      tokens.push({type:'str', text: code.slice(i, j)});
+      i = j;
+      continue;
+    }
+    // Decorators
+    if (c === '@') {
+      let j = i + 1;
+      while (j < n && /[a-zA-Z0-9_.]/.test(code[j])) j++;
+      tokens.push({type:'dec', text: code.slice(i, j)});
+      i = j;
+      continue;
+    }
+    // Numbers
+    if (/[0-9]/.test(c)) {
+      let j = i;
+      while (j < n && /[0-9.xXoObBeE_]/.test(code[j])) j++;
+      tokens.push({type:'num', text: code.slice(i, j)});
+      i = j;
+      continue;
+    }
+    // Identifiers (keywords, builtins, self, plain)
+    if (/[a-zA-Z_]/.test(c)) {
+      let j = i;
+      while (j < n && /[a-zA-Z0-9_]/.test(code[j])) j++;
+      const word = code.slice(i, j);
+      let type = 'plain';
+      if (PY_KW.includes(word)) type = 'kw';
+      else if (PY_BI.includes(word)) type = 'bi';
+      else if (word === 'self' || word === 'cls') type = 'self';
+      tokens.push({type, text: word});
+      i = j;
+      continue;
+    }
+    // Anything else (whitespace, punctuation)
+    tokens.push({type:'plain', text: c});
+    i++;
+  }
+  // Render
+  return tokens.map(t => {
+    const esc = escapeHtml(t.text);
+    if (t.type === 'plain') return esc;
+    return `<span class="hl-${t.type}">${esc}</span>`;
+  }).join('');
+}
+
+// =====================================================
+// CODE EDITOR ENHANCEMENTS
+// =====================================================
+function setupCodeEditor(textarea, qid){
+  const wrap = textarea.closest('.code-editor-wrap');
+  if (!wrap) return;
+  const gutter = wrap.querySelector('.code-gutter');
+  const highlight = wrap.querySelector('.code-highlight');
+
+  function updateAll(){
+    updateLineNumbers(textarea, gutter);
+    updateHighlight(textarea, highlight);
+  }
+
+  function syncScroll(){
+    if (highlight) {
+      highlight.scrollTop = textarea.scrollTop;
+      highlight.scrollLeft = textarea.scrollLeft;
+    }
+  }
+
+  textarea.addEventListener('input', updateAll);
+  textarea.addEventListener('scroll', syncScroll);
+  textarea.addEventListener('focus', () => wrap.classList.add('focused'));
+  textarea.addEventListener('blur', () => wrap.classList.remove('focused'));
+  textarea.addEventListener('keyup', updateAll);
+  textarea.addEventListener('mouseup', updateAll);
+
+  textarea.addEventListener('keydown', function(e){
+    const val = textarea.value;
+    const pos = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // Tab insert
+    if (e.key === 'Tab' && !e.shiftKey) {
+      e.preventDefault();
+      if (pos === end) {
+        const ins = '    ';
+        textarea.value = val.slice(0, pos) + ins + val.slice(end);
+        textarea.selectionStart = textarea.selectionEnd = pos + 4;
+      } else {
+        // Indent selection
+        const before = val.lastIndexOf('\n', pos - 1) + 1;
+        const chunk = val.slice(before, end);
+        const indented = chunk.replace(/^/gm, '    ');
+        textarea.value = val.slice(0, before) + indented + val.slice(end);
+        textarea.selectionStart = before;
+        textarea.selectionEnd = before + indented.length;
+      }
+      updateAll();
+      return;
+    }
+
+    // Shift+Tab unindent
+    if (e.key === 'Tab' && e.shiftKey) {
+      e.preventDefault();
+      const before = val.lastIndexOf('\n', pos - 1) + 1;
+      const chunk = val.slice(before, end);
+      const unindented = chunk.replace(/^ {1,4}/gm, '');
+      textarea.value = val.slice(0, before) + unindented + val.slice(end);
+      textarea.selectionStart = before;
+      textarea.selectionEnd = before + unindented.length;
+      updateAll();
+      return;
+    }
+
+    // Enter with auto-indent
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+      const currentLine = val.slice(lineStart, pos);
+      const indentMatch = currentLine.match(/^(\s*)/);
+      let indent = indentMatch ? indentMatch[1] : '';
+      const trimmed = currentLine.trimEnd();
+      let extra = '';
+      if (trimmed.endsWith(':')) extra = '    ';
+      // If current line is just whitespace + "pass" or similar, might want to reduce
+      const insert = '\n' + indent + extra;
+      textarea.value = val.slice(0, pos) + insert + val.slice(end);
+      textarea.selectionStart = textarea.selectionEnd = pos + insert.length;
+      updateAll();
+      return;
+    }
+
+    // Backspace: remove matching pair if cursor is between them
+    if (e.key === 'Backspace' && pos === end && pos > 0) {
+      const prev = val[pos - 1];
+      const next = val[pos];
+      const pairs = {'(':')', '[':']', '{':'}', '"':'"', "'":"'"};
+      if (pairs[prev] === next) {
+        e.preventDefault();
+        textarea.value = val.slice(0, pos - 1) + val.slice(pos + 1);
+        textarea.selectionStart = textarea.selectionEnd = pos - 1;
+        updateAll();
+        return;
+      }
+    }
+
+    // Auto-close brackets and quotes
+    const autoPairs = {'(':')', '[':']', '{':'}'};
+    if (autoPairs[e.key]) {
+      e.preventDefault();
+      const closing = autoPairs[e.key];
+      if (pos !== end) {
+        // Wrap selection
+        const sel = val.slice(pos, end);
+        textarea.value = val.slice(0, pos) + e.key + sel + closing + val.slice(end);
+        textarea.selectionStart = pos + 1;
+        textarea.selectionEnd = end + 1;
+      } else {
+        textarea.value = val.slice(0, pos) + e.key + closing + val.slice(end);
+        textarea.selectionStart = textarea.selectionEnd = pos + 1;
+      }
+      updateAll();
+      return;
+    }
+
+    // Skip over closing bracket if already there
+    if (e.key === ')' || e.key === ']' || e.key === '}') {
+      if (pos === end && val[pos] === e.key) {
+        e.preventDefault();
+        textarea.selectionStart = textarea.selectionEnd = pos + 1;
+        return;
+      }
+    }
+
+    // Quote auto-close
+    if (e.key === '"' || e.key === "'") {
+      // If we're typing a quote and the next char is the same quote, skip over
+      if (pos === end && val[pos] === e.key) {
+        e.preventDefault();
+        textarea.selectionStart = textarea.selectionEnd = pos + 1;
+        return;
+      }
+      // If nothing selected and prev is not alphanumeric/underscore, auto-pair
+      if (pos === end) {
+        const prevChar = val[pos - 1] || ' ';
+        if (!/[a-zA-Z0-9_]/.test(prevChar)) {
+          e.preventDefault();
+          textarea.value = val.slice(0, pos) + e.key + e.key + val.slice(end);
+          textarea.selectionStart = textarea.selectionEnd = pos + 1;
+          updateAll();
+          return;
+        }
+      } else {
+        // Wrap selection in quotes
+        e.preventDefault();
+        const sel = val.slice(pos, end);
+        textarea.value = val.slice(0, pos) + e.key + sel + e.key + val.slice(end);
+        textarea.selectionStart = pos + 1;
+        textarea.selectionEnd = end + 1;
+        updateAll();
+        return;
+      }
+    }
+
+    // Ctrl+/ toggle comment
+    if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+      let lineEnd = val.indexOf('\n', pos);
+      if (lineEnd === -1) lineEnd = val.length;
+      const line = val.slice(lineStart, lineEnd);
+      let newLine;
+      if (line.trimStart().startsWith('# ')) {
+        newLine = line.replace(/^(\s*)# /, '$1');
+      } else if (line.trimStart().startsWith('#')) {
+        newLine = line.replace(/^(\s*)#/, '$1');
+      } else {
+        newLine = line.replace(/^(\s*)/, '$1# ');
+      }
+      textarea.value = val.slice(0, lineStart) + newLine + val.slice(lineEnd);
+      textarea.selectionStart = textarea.selectionEnd = lineStart + newLine.length;
+      updateAll();
+      return;
+    }
+
+    // Ctrl+D duplicate line
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+      let lineEnd = val.indexOf('\n', pos);
+      if (lineEnd === -1) lineEnd = val.length;
+      const line = val.slice(lineStart, lineEnd);
+      textarea.value = val.slice(0, lineEnd) + '\n' + line + val.slice(lineEnd);
+      textarea.selectionStart = textarea.selectionEnd = pos + line.length + 1;
+      updateAll();
+      return;
+    }
+
+    // Ctrl+Shift+K delete line
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
+      let lineEnd = val.indexOf('\n', pos);
+      if (lineEnd === -1) lineEnd = val.length;
+      else lineEnd += 1;
+      textarea.value = val.slice(0, lineStart) + val.slice(lineEnd);
+      textarea.selectionStart = textarea.selectionEnd = lineStart;
+      updateAll();
+      return;
+    }
+  });
+
+  updateAll();
+}
+
+function updateLineNumbers(textarea, gutter){
+  if (!gutter) return;
+  const lines = textarea.value.split('\n').length;
+  let html = '';
+  for (let i = 1; i <= lines; i++) {
+    html += i + '\n';
+  }
+  gutter.textContent = html;
+}
+
+function updateHighlight(textarea, highlight){
+  if (!highlight) return;
+  // Add trailing newline so highlight pre matches textarea height
+  highlight.innerHTML = highlightPython(textarea.value) + '\n';
 }
 
 // =====================================================
@@ -2112,9 +2531,9 @@ def est_valide(self):
 }
 ];
 
-totalQuestions=SUBJECTS.reduce((a,s)=>a+s.questions.length,0);
-const state={currentSubject:null,answered:{}};
-let streak=0;
+totalQuestions = SUBJECTS.reduce((a,s) => a + s.questions.length, 0);
+const state = { currentSubject: null, answered: {} };
+let streak = 0;
 
 // =====================================================
 // THEME TOGGLE
@@ -2139,186 +2558,20 @@ document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 // RENDER GRID
 // =====================================================
 function renderGrid(){
-  const grid=document.getElementById('subject-grid');
-  grid.innerHTML='';
-  SUBJECTS.forEach(s=>{
-    const btn=document.createElement('button');
-    btn.className='subj-btn'+(state.currentSubject===s.id?' active':'');
-    const status=document.createElement('div');
-    status.className='subj-status';
-    const answered=s.questions.filter(q=>state.answered[q.id] && !state.answered[q.id].revealedOnly);
-    if(answered.length===s.questions.length&&s.questions.length>0)status.classList.add('done');
-    else if(answered.length>0)status.classList.add('wip');
+  const grid = document.getElementById('subject-grid');
+  grid.innerHTML = '';
+  SUBJECTS.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'subj-btn' + (state.currentSubject === s.id ? ' active' : '');
+    const status = document.createElement('div');
+    status.className = 'subj-status';
+    const answered = s.questions.filter(q => state.answered[q.id]);
+    if (answered.length === s.questions.length && s.questions.length > 0) status.classList.add('done');
+    else if (answered.length > 0) status.classList.add('wip');
     btn.appendChild(status);
-    btn.innerHTML+=`<span class="subj-num">${s.id}</span><span style="font-size:.65rem;line-height:1.3">${s.title.length>22?s.title.slice(0,22)+'…':s.title}</span>`;
-    btn.addEventListener('click',()=>{playClick();selectSubject(s.id)});
+    btn.innerHTML += `<span class="subj-num">${s.id}</span><span style="font-size:.65rem;line-height:1.3">${s.title.length > 22 ? s.title.slice(0,22) + '…' : s.title}</span>`;
+    btn.addEventListener('click', () => { playClick(); selectSubject(s.id); });
     grid.appendChild(btn);
-  });
-}
-
-// =====================================================
-// CODE EDITOR ENHANCEMENTS (VS Code / Spyder-like)
-// =====================================================
-function setupCodeEditor(ta){
-  if(!ta || ta.tagName!=='TEXTAREA') return;
-  if(ta.dataset.editorSetup === '1') return;
-  ta.dataset.editorSetup = '1';
-
-  ta.addEventListener('keydown', function(e){
-    const s = ta.selectionStart;
-    const en = ta.selectionEnd;
-    const val = ta.value;
-
-    // TAB / SHIFT-TAB: indent / dedent (works for selections too)
-    if(e.key === 'Tab'){
-      e.preventDefault();
-      if(s === en && !e.shiftKey){
-        ta.value = val.substring(0,s) + '    ' + val.substring(en);
-        ta.selectionStart = ta.selectionEnd = s + 4;
-        return;
-      }
-      const lineStart = val.lastIndexOf('\n', s-1) + 1;
-      const lineEnd = val.indexOf('\n', en);
-      const end = lineEnd === -1 ? val.length : lineEnd;
-      const block = val.substring(lineStart, end);
-      const lines = block.split('\n');
-      let newLines, deltaStart=0, deltaEnd=0;
-      if(e.shiftKey){
-        newLines = lines.map((l,i)=>{
-          const m = l.match(/^ {1,4}/);
-          if(m){
-            if(i===0) deltaStart -= m[0].length;
-            deltaEnd -= m[0].length;
-            return l.substring(m[0].length);
-          }
-          return l;
-        });
-      } else {
-        newLines = lines.map(l => '    ' + l);
-        deltaStart = 4;
-        deltaEnd = 4 * lines.length;
-      }
-      const newText = newLines.join('\n');
-      ta.value = val.substring(0,lineStart) + newText + val.substring(end);
-      ta.selectionStart = Math.max(lineStart, s + deltaStart);
-      ta.selectionEnd = end + deltaEnd - (block.length - newText.length);
-      return;
-    }
-
-    // ENTER: auto-indent, extra indent after ':'
-    if(e.key === 'Enter'){
-      const before = val.substring(0, s);
-      const after = val.substring(en);
-      const lineStart = before.lastIndexOf('\n') + 1;
-      const currentLine = before.substring(lineStart);
-      const indentMatch = currentLine.match(/^(\s*)/);
-      const indent = indentMatch ? indentMatch[1] : '';
-      const trimmed = currentLine.replace(/\s+$/, '');
-      let extra = '';
-      if(trimmed.endsWith(':') || trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')){
-        extra = '    ';
-      }
-      e.preventDefault();
-      ta.value = before + '\n' + indent + extra + after;
-      ta.selectionStart = ta.selectionEnd = s + 1 + indent.length + extra.length;
-      return;
-    }
-
-    // AUTO-CLOSE pairs
-    const pairs = {'(':')', '[':']', '{':'}', '"':'"', "'":"'", '`':'`'};
-    if(pairs[e.key]){
-      const sel = val.substring(s, en);
-      e.preventDefault();
-      if(s !== en){
-        ta.value = val.substring(0,s) + e.key + sel + pairs[e.key] + val.substring(en);
-        ta.selectionStart = s + 1;
-        ta.selectionEnd = en + 1;
-      } else {
-        ta.value = val.substring(0,s) + e.key + pairs[e.key] + val.substring(en);
-        ta.selectionStart = ta.selectionEnd = s + 1;
-      }
-      return;
-    }
-
-    // SKIP over closing character if already present
-    const closers = [')', ']', '}', '"', "'", '`'];
-    if(closers.includes(e.key) && val[s] === e.key && s === en){
-      e.preventDefault();
-      ta.selectionStart = ta.selectionEnd = s + 1;
-      return;
-    }
-
-    // BACKSPACE: delete matching pair
-    if(e.key === 'Backspace' && s === en && s >= 1){
-      const two = val.substring(s-1, s+1);
-      const pairChars = ['()','[]','{}','""',"''",'``'];
-      if(pairChars.includes(two)){
-        e.preventDefault();
-        ta.value = val.substring(0,s-1) + val.substring(s+1);
-        ta.selectionStart = ta.selectionEnd = s - 1;
-        return;
-      }
-    }
-
-    // Ctrl/Cmd + / : toggle comment
-    if((e.ctrlKey || e.metaKey) && e.key === '/'){
-      e.preventDefault();
-      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
-      const lineEndIdx = val.indexOf('\n', en);
-      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
-      const block = val.substring(lineStart, lineEnd);
-      const lines = block.split('\n');
-      const allCommented = lines.every(l => l.trim().startsWith('#'));
-      const newLines = lines.map(l => {
-        if(allCommented){
-          return l.replace(/^(\s*)# ?/, '$1');
-        }
-        const m = l.match(/^(\s*)/);
-        const leading = m ? m[1] : '';
-        return leading + '# ' + l.substring(leading.length);
-      });
-      const newText = newLines.join('\n');
-      ta.value = val.substring(0,lineStart) + newText + val.substring(lineEnd);
-      ta.selectionStart = lineStart;
-      ta.selectionEnd = lineStart + newText.length;
-      return;
-    }
-
-    // Ctrl/Cmd + D: duplicate current line
-    if((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')){
-      e.preventDefault();
-      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
-      const lineEndIdx = val.indexOf('\n', s);
-      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
-      const line = val.substring(lineStart, lineEnd);
-      ta.value = val.substring(0, lineEnd) + '\n' + line + val.substring(lineEnd);
-      ta.selectionStart = ta.selectionEnd = s + line.length + 1;
-      return;
-    }
-
-    // Ctrl/Cmd + Shift + K (or Ctrl+Y style): delete current line
-    if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && e.shiftKey){
-      e.preventDefault();
-      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
-      const lineEndIdx = val.indexOf('\n', s);
-      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
-      const deleteEnd = lineEndIdx === -1 ? val.length : lineEndIdx + 1;
-      ta.value = val.substring(0, lineStart) + val.substring(deleteEnd);
-      ta.selectionStart = ta.selectionEnd = Math.min(lineStart, ta.value.length);
-      return;
-    }
-
-    // Home: go to first non-whitespace, then to column 0
-    if(e.key === 'Home' && !e.shiftKey && !e.ctrlKey){
-      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
-      const line = val.substring(lineStart, s);
-      const firstNonWs = line.search(/\S/);
-      const target = firstNonWs === -1 ? lineStart : (s === lineStart + firstNonWs ? lineStart : lineStart + firstNonWs);
-      if(target !== s){
-        e.preventDefault();
-        ta.selectionStart = ta.selectionEnd = target;
-      }
-    }
   });
 }
 
@@ -2326,12 +2579,12 @@ function setupCodeEditor(ta){
 // RENDER SUBJECT
 // =====================================================
 function selectSubject(id){
-  state.currentSubject=id;
+  state.currentSubject = id;
   saveState();
   renderGrid();
-  const s=SUBJECTS.find(x=>x.id===id);
-  const el=document.getElementById('subject-content');
-  let html=`<div class="subject-card">
+  const s = SUBJECTS.find(x => x.id === id);
+  const el = document.getElementById('subject-content');
+  let html = `<div class="subject-card">
   <div class="card-header">
     <span class="card-badge tag badge-${id}">Sujet ${id}</span>
     <div style="flex:1">
@@ -2341,88 +2594,97 @@ function selectSubject(id){
   </div>
   <div class="subject-statement">
     <h4>Contexte du sujet</h4>
-    ${s.statement||''}
+    ${s.statement || ''}
   </div>
   <div class="questions-wrap">`;
-  s.questions.forEach((q,qi)=>{
-    const colorClass=`q-num-${(qi%6)+1}`;
-    const isAns=state.answered[q.id];
-    // revealedOnly entries don't count as answered for visual state
-    const effectiveAns = isAns && !isAns.revealedOnly ? isAns : null;
-    const blockClass=effectiveAns?(effectiveAns.correct==='revealed'?'answered-wrong':(effectiveAns.correct?'answered-correct':'answered-wrong')):'';
-    html+=`<div class="question-block ${blockClass}" id="qblock-${q.id}">
+  s.questions.forEach((q, qi) => {
+    const colorClass = `q-num-${(qi % 6) + 1}`;
+    const isAns = state.answered[q.id];
+    const blockClass = isAns ? (isAns.correct === 'revealed' ? '' : (isAns.correct ? 'answered-correct' : 'answered-wrong')) : '';
+    html += `<div class="question-block ${blockClass}" id="qblock-${q.id}">
     <div class="q-header">
       <span class="q-num tag ${colorClass}">Q${q.num}</span>
       <div class="q-text">${q.text}</div>
     </div>
     <div class="code-area-wrap">
-      <div class="code-label">${q.type==='mc'?'Choisir une réponse':q.type==='code'?'Votre code Python':'Votre réponse'}</div>`;
-    if(q.type==='mc'){
-      html+=`<div class="mc-wrap" id="mc-${q.id}">`;
-      q.options.forEach((opt,oi)=>{
-        const isSelected=effectiveAns&&effectiveAns.selected_idx===oi;
-        const revealCorrect=effectiveAns&&oi===q.correct_idx;
-        const revealWrong=effectiveAns&&isSelected&&oi!==q.correct_idx;
-        html+=`<div class="mc-option${isSelected?' selected':''}${revealCorrect?' correct-ans':''}${revealWrong?' wrong-ans':''}" onclick="selectMC('${q.id}',${oi},${id})">
+      <div class="code-label">${q.type === 'mc' ? 'Choisir une réponse' : q.type === 'code' ? 'Votre code Python' : 'Votre réponse'}</div>`;
+    if (q.type === 'mc') {
+      html += `<div class="mc-wrap" id="mc-${q.id}">`;
+      q.options.forEach((opt, oi) => {
+        const isSelected = isAns && isAns.selected_idx === oi;
+        const revealCorrect = isAns && oi === q.correct_idx;
+        const revealWrong = isAns && isSelected && oi !== q.correct_idx;
+        html += `<div class="mc-option${isSelected ? ' selected' : ''}${revealCorrect ? ' correct-ans' : ''}${revealWrong ? ' wrong-ans' : ''}" onclick="selectMC('${q.id}',${oi},${id})">
           <div class="mc-radio"></div>
           <span>${opt}</span>
         </div>`;
       });
-      html+=`</div>`;
+      html += `</div>`;
     } else {
       const starter = q.starter || '';
-      const currentVal = effectiveAns && typeof effectiveAns.value==='string' ? effectiveAns.value : starter;
-      html+=`<textarea class="${q.type==='code'?'code-input':'text-input'}" id="input-${q.id}" placeholder="${q.type==='code'?'# Complétez le code ci-dessous...':'Votre réponse...'}" spellcheck="false">${escHtml(currentVal)}</textarea>`;
+      const currentVal = isAns && typeof isAns.value === 'string' ? isAns.value : starter;
+      if (q.type === 'code') {
+        html += `<div class="code-editor-wrap" id="editor-${q.id}">
+          <div class="code-gutter">1</div>
+          <div class="code-main">
+            <pre class="code-highlight"></pre>
+            <textarea class="code-input" id="input-${q.id}" placeholder="# Complétez le code ci-dessous..." spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">${escHtml(currentVal)}</textarea>
+          </div>
+        </div>`;
+      } else {
+        html += `<textarea class="text-input" id="input-${q.id}" placeholder="Votre réponse..." spellcheck="false">${escHtml(currentVal)}</textarea>`;
+      }
     }
-    html+=(q.hint?`<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>`:'');
-    html+=`<div class="btn-row">
-      ${q.type!=='mc'?`<button class="btn btn-check" id="btn-check-${q.id}" onclick="checkAnswer('${q.id}',${id})">✓ Vérifier</button>`:''}
+    html += (q.hint ? `<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>` : '');
+    html += `<div class="btn-row">
+      ${q.type !== 'mc' ? `<button class="btn btn-check" id="btn-check-${q.id}" onclick="checkAnswer('${q.id}',${id})">✓ Vérifier</button>` : ''}
       <button class="btn btn-reveal" onclick="revealAnswer('${q.id}',${id})">👁 Correction</button>
-      ${q.type!=='mc'?`<button class="btn btn-reset" onclick="resetAnswer('${q.id}',${id})">↺ Réinitialiser</button>`:''}
+      ${q.type !== 'mc' ? `<button class="btn btn-reset" onclick="resetAnswer('${q.id}',${id})">↺ Réinitialiser</button>` : ''}
     </div>
     <div class="feedback" id="fb-${q.id}"></div>
     </div></div>`;
   });
-  html+=`</div></div>`;
-  el.innerHTML=html;
+  html += `</div></div>`;
+  el.innerHTML = html;
 
-  // Attach code editor enhancements to all textareas
-  el.querySelectorAll('textarea').forEach(setupCodeEditor);
+  // Setup code editors
+  s.questions.forEach(q => {
+    if (q.type === 'code') {
+      const ta = document.getElementById(`input-${q.id}`);
+      if (ta) setupCodeEditor(ta, q.id);
+    }
+  });
 
-  // Restore feedback for already-answered (non-revealed-only) questions
-  s.questions.forEach(q=>{
-    const info = state.answered[q.id];
-    if(info && !info.revealedOnly){
-      const fb=document.getElementById(`fb-${q.id}`);
-      if(fb){
+  // Restore feedback
+  s.questions.forEach(q => {
+    if (state.answered[q.id]) {
+      const fb = document.getElementById(`fb-${q.id}`);
+      const info = state.answered[q.id];
+      if (fb) {
         const isRevealed = info.correct === 'revealed';
         const cls = isRevealed ? 'reveal' : (info.correct ? 'correct' : 'wrong');
-        fb.className='feedback show '+cls;
-        fb.innerHTML=renderFeedbackHTML(q,info.correct,info.value||'',info.feedback);
-      }
-    } else if(info && info.revealedOnly){
-      // Show the reveal correction persistently so user can study it
-      const fb=document.getElementById(`fb-${q.id}`);
-      if(fb){
-        fb.className='feedback show reveal';
-        fb.innerHTML=renderFeedbackHTML(q,'revealed','',null);
+        fb.className = 'feedback show ' + cls;
+        fb.innerHTML = renderFeedbackHTML(q, info.correct, info.value || '', info.feedback);
       }
     }
   });
-  el.scrollIntoView({behavior:'smooth',block:'start'});
+
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function escHtml(str){
-  if(!str) return '';
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
-  if(correct==='revealed'){
-    return `<div class="feedback-title">📖 Correction officielle</div><pre>${escHtml(q.correction)}</pre>`;
+  if (correct === 'revealed') {
+    return `<div class="feedback-title">📖 Correction officielle</div>
+    <p style="margin-bottom:8px;font-size:.82rem;opacity:.9">Vous pouvez toujours tenter de répondre correctement après avoir consulté la correction.</p>
+    <pre>${escHtml(q.correction)}</pre>`;
   }
   const scoreInfo = feedbackMsg ? `<div style="margin-top:8px;padding:8px;background:#111;border-radius:6px;font-size:.82rem;color:#aaa">${feedbackMsg}</div>` : '';
-  if(correct){
+  if (correct) {
     return `<div class="feedback-title">✅ Bonne réponse !</div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#00dd66;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
   }
   return `<div class="feedback-title">❌ Pas tout à fait…</div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#ff2244;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
@@ -2431,147 +2693,184 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
 // =====================================================
 // MULTIPLE CHOICE
 // =====================================================
-function selectMC(qid,optIdx,subjectId){
+function selectMC(qid, optIdx, subjectId){
   playClick();
-  const subject=SUBJECTS.find(s=>s.id===subjectId);
-  const q=subject.questions.find(q=>q.id===qid);
-  const correct=optIdx===q.correct_idx;
-  const prev=state.answered[qid];
-  // A reveal-only record does NOT block scoring
-  const wasScored = prev && !prev.revealedOnly;
-  if(!wasScored){
-    updateScore(correct);
+  const subject = SUBJECTS.find(s => s.id === subjectId);
+  const q = subject.questions.find(q => q.id === qid);
+  const correct = optIdx === q.correct_idx;
+  const wasAnswered = !!state.answered[qid];
+  const prev = state.answered[qid];
+
+  // Score only if this is the first real attempt (not after reveal, not after previous attempt)
+  if (!wasAnswered) {
+    // First interaction ever with this question - count it
+    state.answered[qid] = { correct, selected_idx: optIdx, scored: true };
+  } else if (prev.correct === 'revealed') {
+    // They looked at the answer before - now they're making a real choice
+    // Mark as scored with their choice
+    state.answered[qid] = { correct, selected_idx: optIdx, scored: true };
+  } else {
+    // Already attempted - update selection but don't re-score
+    state.answered[qid] = { ...prev, correct, selected_idx: optIdx };
   }
-  state.answered[qid]={correct,selected_idx:optIdx};
   saveState();
-  const fb=document.getElementById(`fb-${qid}`);
-  const block=document.getElementById(`qblock-${qid}`);
-  const mc=document.getElementById(`mc-${qid}`);
-  const opts=mc.querySelectorAll('.mc-option');
-  opts.forEach((o,i)=>{
-    o.classList.remove('selected','correct-ans','wrong-ans');
-    if(i===optIdx)o.classList.add('selected');
-    if(i===q.correct_idx&&!correct)o.classList.add('correct-ans');
-    if(i===optIdx&&!correct)o.classList.add('wrong-ans');
+
+  const fb = document.getElementById(`fb-${qid}`);
+  const block = document.getElementById(`qblock-${qid}`);
+  const mc = document.getElementById(`mc-${qid}`);
+  const opts = mc.querySelectorAll('.mc-option');
+  opts.forEach((o, i) => {
+    o.classList.remove('selected', 'correct-ans', 'wrong-ans');
+    if (i === optIdx) o.classList.add('selected');
+    if (i === q.correct_idx && !correct) o.classList.add('correct-ans');
+    if (i === optIdx && !correct) o.classList.add('wrong-ans');
   });
-  if(correct){
-    fb.className='feedback show correct';
-    fb.innerHTML=renderFeedbackHTML(q,true,'',null);
-    block.className='question-block answered-correct';
-    if(!wasScored){ playSuccess(); }
-    if(!wasScored){
+
+  if (correct) {
+    fb.className = 'feedback show correct';
+    fb.innerHTML = renderFeedbackHTML(q, true, '', null);
+    block.className = 'question-block answered-correct';
+    if (!wasAnswered || prev.correct === 'revealed') { playSuccess(); }
+    if (!wasAnswered || prev.correct === 'revealed') {
       streak++;
-      const rect=mc.getBoundingClientRect();
-      launchConfetti(rect.left+rect.width/2,rect.top);
-      setTimeout(()=>showStreak('Bonne réponse ! 🎯','✅'),200);
+      const rect = mc.getBoundingClientRect();
+      launchConfetti(rect.left + rect.width / 2, rect.top);
+      setTimeout(() => showStreak('Bonne réponse ! 🎯', '✅'), 200);
     }
   } else {
-    fb.className='feedback show wrong';
-    fb.innerHTML=renderFeedbackHTML(q,false,'',null);
-    block.className='question-block answered-wrong';
-    if(!wasScored){ playFail(); streak=0; showStreak('Regarde la correction !','❌'); }
+    fb.className = 'feedback show wrong';
+    fb.innerHTML = renderFeedbackHTML(q, false, '', null);
+    block.className = 'question-block answered-wrong';
+    if (!wasAnswered) { playFail(); streak = 0; showStreak('Regarde la correction !', '❌'); }
   }
+  updateScoreDisplay();
   renderGrid();
 }
 
 // =====================================================
 // HINT
 // =====================================================
-function toggleHint(qid){const h=document.getElementById(`hint-${qid}`);h.classList.toggle('show');playClick()}
-
-// =====================================================
-// CHECK ANSWER
-// =====================================================
-function checkAnswer(qid,subjectId){
+function toggleHint(qid){
+  const h = document.getElementById(`hint-${qid}`);
+  h.classList.toggle('show');
   playClick();
-  const subject=SUBJECTS.find(s=>s.id===subjectId);
-  const q=subject.questions.find(q=>q.id===qid);
-  const input=document.getElementById(`input-${qid}`);
-  const userVal=input?input.value.trim():'';
-  const fb=document.getElementById(`fb-${qid}`);
-  const block=document.getElementById(`qblock-${qid}`);
+}
 
-  if(!userVal || userVal === (q.starter||'').trim()){
-    fb.className='feedback show wrong';
-    fb.innerHTML='<div class="feedback-title">⚠️ Réponse vide ou non modifiée</div><p>Écrivez votre réponse avant de vérifier !</p>';
+// =====================================================
+// CHECK ANSWER — Reveal does NOT block scoring
+// =====================================================
+function checkAnswer(qid, subjectId){
+  playClick();
+  const subject = SUBJECTS.find(s => s.id === subjectId);
+  const q = subject.questions.find(q => q.id === qid);
+  const input = document.getElementById(`input-${qid}`);
+  const userVal = input ? input.value.trim() : '';
+  const fb = document.getElementById(`fb-${qid}`);
+  const block = document.getElementById(`qblock-${qid}`);
+
+  if (!userVal || userVal === (q.starter || '').trim()) {
+    fb.className = 'feedback show wrong';
+    fb.innerHTML = '<div class="feedback-title">⚠️ Réponse vide ou non modifiée</div><p>Écrivez votre réponse avant de vérifier !</p>';
     return;
   }
 
-  const prev=state.answered[qid];
-  // If already scored (non-revealed-only), don't re-score
-  const wasScored = prev && !prev.revealedOnly;
+  const wasAnswered = !!state.answered[qid];
+  const prev = state.answered[qid];
   const result = checkAnswer_local(q, userVal);
   const correct = result.correct;
-  
-  if(!wasScored){
-    updateScore(correct);
-  }
 
-  state.answered[qid]={correct,value:userVal,feedback:result.feedback};
+  // Only count score ONCE. If previously revealed, allow scoring now (first real attempt).
+  const alreadyScored = wasAnswered && prev.correct !== 'revealed';
+
+  if (!alreadyScored) {
+    // First real attempt (could be first ever, or first after reveal)
+    state.answered[qid] = { correct, value: userVal, feedback: result.feedback, scored: true };
+  } else {
+    // Already scored previously - just update but don't change scoring
+    state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback };
+  }
   saveState();
 
-  if(correct){
-    fb.className='feedback show correct';
-    fb.innerHTML=renderFeedbackHTML(q,true,userVal,result.feedback);
-    block.className='question-block answered-correct';
-    if(!wasScored){
-      playSuccess();streak++;
-      const rect=input.getBoundingClientRect();
-      launchConfetti(rect.left+rect.width/2,rect.top);
-      const msgs=['Parfait ! 🎯','Excellent ! 💪','Bravo ! 🔥','Super ! ⭐'];
-      setTimeout(()=>showStreak(msgs[Math.min(streak-1,msgs.length-1)],'🎉'),200);
+  if (correct) {
+    fb.className = 'feedback show correct';
+    fb.innerHTML = renderFeedbackHTML(q, true, userVal, result.feedback);
+    block.className = 'question-block answered-correct';
+    if (!alreadyScored) {
+      playSuccess();
+      streak++;
+      const rect = input.getBoundingClientRect();
+      launchConfetti(rect.left + rect.width / 2, rect.top);
+      const msgs = ['Parfait ! 🎯', 'Excellent ! 💪', 'Bravo ! 🔥', 'Super ! ⭐'];
+      setTimeout(() => showStreak(msgs[Math.min(streak - 1, msgs.length - 1)], '🎉'), 200);
     }
   } else {
-    fb.className='feedback show wrong';
-    fb.innerHTML=renderFeedbackHTML(q,false,userVal,result.feedback);
-    block.className='question-block answered-wrong';
-    if(!wasScored){ playFail(); streak=0; showStreak('Pas encore… Réessaie ou regarde la correction !','💪'); }
+    fb.className = 'feedback show wrong';
+    fb.innerHTML = renderFeedbackHTML(q, false, userVal, result.feedback);
+    block.className = 'question-block answered-wrong';
+    if (!alreadyScored) { playFail(); streak = 0; showStreak('Pas encore… Réessaie ou regarde la correction !', '💪'); }
   }
+  updateScoreDisplay();
   renderGrid();
 }
 
 // =====================================================
-// REVEAL — does NOT block getting the question right later
+// REVEAL — Does NOT block getting the question right later
 // =====================================================
-function revealAnswer(qid,subjectId){
+function revealAnswer(qid, subjectId){
   playReveal();
-  const subject=SUBJECTS.find(s=>s.id===subjectId);
-  const q=subject.questions.find(q=>q.id===qid);
-  const fb=document.getElementById(`fb-${qid}`);
-  fb.className='feedback show reveal';
-  fb.innerHTML=renderFeedbackHTML(q,'revealed','',null);
-  // Mark as "revealed only" — user can still answer and get credit later
+  const subject = SUBJECTS.find(s => s.id === subjectId);
+  const q = subject.questions.find(q => q.id === qid);
+  const fb = document.getElementById(`fb-${qid}`);
+  fb.className = 'feedback show reveal';
+  fb.innerHTML = renderFeedbackHTML(q, 'revealed', '', null);
+
+  const wasAnswered = !!state.answered[qid];
   const prev = state.answered[qid];
-  if(!prev || prev.revealedOnly){
-    state.answered[qid]={correct:'revealed', value:'', revealedOnly:true};
+
+  if (!wasAnswered) {
+    // First interaction: mark as revealed but do NOT lock scoring
+    // User can still answer and get it right later
+    state.answered[qid] = { correct: 'revealed', value: '', scored: false };
+  } else if (prev.correct === true) {
+    // Already got it right — keep as correct
+    // Nothing to change
+  } else if (prev.correct === false) {
+    // Was marked wrong — keep as wrong (they already attempted)
+    // But still show the correction
+  } else {
+    // Already revealed — no change
   }
-  // Do NOT call updateScore here. The question remains scorable.
   saveState();
+  updateScoreDisplay();
   renderGrid();
 }
 
 // =====================================================
 // RESET
 // =====================================================
-function resetAnswer(qid,subjectId){
+function resetAnswer(qid, subjectId){
   playClick();
-  const input=document.getElementById(`input-${qid}`);
-  const subject=SUBJECTS.find(s=>s.id===subjectId);
-  const q=subject&&subject.questions.find(q=>q.id===qid);
-  const prev = state.answered[qid];
-  const wasScored = prev && !prev.revealedOnly;
-  if(input&&q)input.value=q.starter||'';
-  const fb=document.getElementById(`fb-${qid}`);
-  if(fb){fb.className='feedback';fb.innerHTML=''}
-  const block=document.getElementById(`qblock-${qid}`);
-  if(block)block.className='question-block';
-  if(wasScored){
-    // Preserve scored state so the user can't re-score for extra points
-    state.answered[qid] = { correct: false, value: '', feedback: '', locked: true };
-  } else {
-    // Was either unrevealed or only revealed — clear entirely
-    delete state.answered[qid];
+  const input = document.getElementById(`input-${qid}`);
+  const subject = SUBJECTS.find(s => s.id === subjectId);
+  const q = subject && subject.questions.find(q => q.id === qid);
+  if (input && q) input.value = q.starter || '';
+  // Re-trigger editor update
+  if (q && q.type === 'code') {
+    const wrap = document.getElementById(`editor-${qid}`);
+    if (wrap) {
+      const gutter = wrap.querySelector('.code-gutter');
+      const hl = wrap.querySelector('.code-highlight');
+      if (input) {
+        updateLineNumbers(input, gutter);
+        updateHighlight(input, hl);
+      }
+    }
   }
+  const fb = document.getElementById(`fb-${qid}`);
+  if (fb) { fb.className = 'feedback'; fb.innerHTML = ''; }
+  const block = document.getElementById(`qblock-${qid}`);
+  if (block) block.className = 'question-block';
+  // Do NOT remove from state.answered to preserve score integrity
   saveState();
   renderGrid();
 }
@@ -2581,10 +2880,9 @@ function resetAnswer(qid,subjectId){
 // =====================================================
 loadState();
 initTheme();
-document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;
-updateProgress();
+updateScoreDisplay();
 renderGrid();
-if(state.currentSubject) selectSubject(state.currentSubject);
+if (state.currentSubject) selectSubject(state.currentSubject);
 </script>
 </body>
 </html>
