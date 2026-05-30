@@ -82,7 +82,7 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .subj-status{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#333}
 .subj-status.done{background:var(--g);box-shadow:0 0 6px var(--g)}
 .subj-status.wip{background:var(--o);box-shadow:0 0 6px var(--o)}
-.subject-layout{display:flex;gap:20px;align-items:flex-start}
+.subject-layout{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
 .subject-main{flex:1;min-width:0}
 .pdf-viewer-panel{
 display:none;
@@ -377,7 +377,13 @@ function animateConf(){ctx2d.clearRect(0,0,canvas.width,canvas.height);confetti=
 let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 let totalQuestions=0;
-function getCompletedCount(){ return Object.keys(state.answered).length; }
+function getCompletedCount(){ 
+    let count = 0;
+    for (const qid in state.answered) {
+        if (state.answered[qid].correct === true) count++;
+    }
+    return count; 
+}
 function updateScoreDisplay(){
 const completed = getCompletedCount();
 document.getElementById('score-display').textContent = `⚡ ${completed} / ${totalQuestions}`;
@@ -409,21 +415,16 @@ state.answered=data.answered;
 if(typeof data.currentSubject==='number') state.currentSubject=data.currentSubject;
 }catch(e){}
 }
-
-// =====================================================
-// AI GRADING via Puter.js (Strictly OpenAI, No Anthropic)
-// =====================================================
 async function gradeAnswerWithAI(q, userAnswer) {
-  const plainQuestion = q.text
-    .replace(/<code>(.*?)<\/code>/g, '`$1`')
-    .replace(/<pre>(.*?)<\/pre>/gs, '\n```\n$1\n```\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<strong>(.*?)<\/strong>/g, '$1')
-    .replace(/<[^>]+>/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const prompt = `You are an expert automatic grader for a French high school computer science exam (NSI Terminale, BNS 2026).
+const plainQuestion = q.text
+.replace(/<code>(.*?)<\/code>/g, '`$1`')
+.replace(/<pre>(.*?)<\/pre>/gs, '\n```\n$1\n```\n')
+.replace(/<br\s*\/?>/gi, '\n')
+.replace(/<strong>(.*?)<\/strong>/g, '$1')
+.replace(/<[^>]+>/g, '')
+.replace(/\s+/g, ' ')
+.trim();
+const prompt = `You are an expert automatic grader for a French high school computer science exam (NSI Terminale, BNS 2026).
 
 QUESTION (${q.type === 'code' ? 'Python code' : 'written explanation'}):
 ${plainQuestion}
@@ -436,78 +437,48 @@ ${userAnswer}
 
 GRADING RULES:
 - Accept any semantically/functionally correct answer, even if different from the reference.
-- For code: accept any implementation that achieves the same behavior.
-- For explanations: accept any answer capturing the key concepts.
+- For code: accept any implementation that achieves the same behavior (variable names, style can differ).
+- For explanations: accept any answer capturing the key concepts, even if incomplete.
 - Reject clearly wrong, empty, or unrelated answers.
+- Be fair but rigorous.
 
-OUTPUT FORMAT:
-You must respond with a valid JSON object and absolutely nothing else. No markdown formatting, no backticks, just the raw JSON.
-The JSON object must have exactly two keys:
-1. "correct": a boolean (true if correct, false if incorrect).
-2. "feedback": a string containing a highly detailed, straight-to-the-point, no-BS explanation of the mistakes made by the student. If the answer is correct, briefly confirm why it's correct. Point out exact lines, logic errors, syntax issues, or missing concepts. Be rigorous, technical, and direct. Do not use pleasantries. Write the feedback in French.
-
-Example JSON:
-{"correct": false, "feedback": "Erreur ligne 3 : la boucle while ne s'arrête pas correctement car la condition d'arrêt omet de vérifier l'index. De plus, l'indentation de la ligne 5 est incorrecte, ce qui sort l'instruction return de la fonction. Il manque également la gestion du cas où la liste est vide."}`;
-
-  try {
-    if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
-      throw new Error('Puter AI not available');
-    }
-
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('AI grading timeout')), 45000)
-    );
-
-    // Explicitly use OpenAI to strictly avoid Anthropic/Claude
-    const aiCall = puter.ai.chat(prompt, { model: 'openai/gpt-4o-mini' });
-    const response = await Promise.race([aiCall, timeout]);
-
-    let text = '';
-    if (typeof response === 'string') {
-      text = response;
-    } else if (response && response.message && response.message.content) {
-      text = response.message.content;
-    } else if (response && response.text) {
-      text = response.text;
-    } else {
-      text = String(response);
-    }
-
-    let parsed = null;
-    try {
-      const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      parsed = JSON.parse(cleanedText);
-    } catch (e) {
-      const jsonMatch = text.match(/\{[\s\S]*?"correct"[\s\S]*?\}/);
-      if (jsonMatch) {
-        try {
-          parsed = JSON.parse(jsonMatch[0]);
-        } catch (e2) {}
-      }
-    }
-
-    if (parsed && typeof parsed.correct === 'boolean' && typeof parsed.feedback === 'string') {
-      return { correct: parsed.correct, feedback: parsed.feedback, source: 'ai' };
-    }
-
-    const upper = text.toUpperCase().trim();
-    const isYes = /\bYES\b/.test(upper) || /\bTRUE\b/.test(upper);
-    const isNo = /\bNO\b/.test(upper) || /\bFALSE\b/.test(upper);
-    if (isYes && !isNo) {
-      return { correct: true, feedback: 'Réponse correcte.', source: 'ai' };
-    } else if (isNo) {
-      return { correct: false, feedback: 'Réponse incorrecte. (Détails non fournis par l\'IA)', source: 'ai' };
-    }
-
-    console.warn('AI returned unparseable response:', text);
-    return fallbackGrade(q, userAnswer);
-
-  } catch (err) {
-    console.warn('AI grading failed, using fallback:', err);
-    return fallbackGrade(q, userAnswer);
-  }
+Respond with EXACTLY ONE WORD: YES if correct, NO if incorrect.
+Do NOT add any explanation, punctuation, or additional text. Just YES or NO.`;
+try {
+if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
+throw new Error('Puter AI not available');
 }
-
+const timeout = new Promise((_, reject) =>
+setTimeout(() => reject(new Error('AI grading timeout')), 30000)
+);
+const aiCall = puter.ai.chat(prompt);
+const response = await Promise.race([aiCall, timeout]);
+let text = '';
+if (typeof response === 'string') {
+text = response;
+} else if (response && response.message && response.message.content) {
+text = response.message.content;
+} else if (response && response.text) {
+text = response.text;
+} else {
+text = String(response);
+}
+const upper = text.toUpperCase().trim();
+const isYes = /\bYES\b/.test(upper);
+const isNo = /\bNO\b/.test(upper);
+if (isYes && !isNo) {
+return { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
+} else if (isNo) {
+return { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
+} else {
+console.warn('AI returned unclear response:', text);
+return fallbackGrade(q, userAnswer);
+}
+} catch (err) {
+console.warn('AI grading failed, using fallback:', err);
+return fallbackGrade(q, userAnswer);
+}
+}
 function fallbackGrade(q, userAnswer) {
 if (!userAnswer || userAnswer.trim().length < 5) {
 return { correct: false, feedback: 'Réponse trop courte ou vide. (Fallback mode)', source: 'fallback' };
@@ -525,7 +496,6 @@ const feedback = correct
 : `[Fallback] Seulement ${hits}/${keywords.length} mots-clés.`;
 return { correct, feedback, source: 'fallback' };
 }
-
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
 const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 function escapeHtml(s){
@@ -2645,9 +2615,10 @@ const btn = document.createElement('button');
 btn.className = 'subj-btn' + (state.currentSubject === s.id ? ' active' : '');
 const status = document.createElement('div');
 status.className = 'subj-status';
-const answered = s.questions.filter(q => state.answered[q.id]);
-if (answered.length === s.questions.length && s.questions.length > 0) status.classList.add('done');
-else if (answered.length > 0) status.classList.add('wip');
+const correctCount = s.questions.filter(q => state.answered[q.id] && state.answered[q.id].correct === true).length;
+const attemptedCount = s.questions.filter(q => state.answered[q.id]).length;
+if (correctCount === s.questions.length && s.questions.length > 0) status.classList.add('done');
+else if (attemptedCount > 0) status.classList.add('wip');
 btn.appendChild(status);
 btn.innerHTML += `<span class="subj-num">${s.id}</span><span style="font-size:.65rem;line-height:1.3">${s.title.length > 22 ? s.title.slice(0,22) + '…' : s.title}</span>`;
 btn.addEventListener('click', () => { playClick(); selectSubject(s.id); });
@@ -2760,6 +2731,11 @@ ${q.type !== 'mc' ? `<button class="btn btn-reset" onclick="resetAnswer('${q.id}
 html += `</div></div>
 </div>
 ${pdfPanelHTML}
+</div>
+<div style="margin-top:30px; text-align:center; padding-bottom:20px; width:100%;">
+    <button class="btn btn-reset" onclick="resetSubjectProgress(${id})" style="background:transparent;color:var(--r);border-color:var(--r);padding:10px 24px;font-size:.85rem;">
+        ↺ Réinitialiser la progression de ce sujet
+    </button>
 </div>`;
 el.innerHTML = html;
 setTimeout(() => {
@@ -2811,7 +2787,7 @@ return `<div class="feedback-title">📖 Correction officielle</div>
 <p style="margin-bottom:8px;font-size:.82rem;opacity:.9">💡 Regarder la correction ou les indices ne bloque pas votre score. Vous pouvez toujours tenter de répondre correctement !</p>
 <pre>${escHtml(q.correction)}</pre>`;
 }
-const scoreInfo = feedbackMsg ? `<div style="margin-top:10px;padding:12px;background:#0a0a0a;border-radius:6px;font-size:.82rem;color:#ddd;white-space:pre-wrap;font-family:var(--mono);line-height:1.6;border:1px solid #333">${escHtml(feedbackMsg)}</div>` : '';
+const scoreInfo = feedbackMsg ? `<div style="margin-top:8px;padding:8px;background:#111;border-radius:6px;font-size:.82rem;color:#aaa">${feedbackMsg}</div>` : '';
 if (correct) {
 return `<div class="feedback-title">✅ Bonne réponse ! <span class="ai-badge">AI</span></div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#00dd66;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
 }
@@ -2968,6 +2944,18 @@ const block = document.getElementById(`qblock-${qid}`);
 if (block) block.className = 'question-block';
 saveState();
 renderGrid();
+}
+function resetSubjectProgress(subjectId) {
+    if (!confirm('Voulez-vous vraiment réinitialiser votre progression pour ce sujet ?')) return;
+    const subject = SUBJECTS.find(s => s.id === subjectId);
+    if (!subject) return;
+    subject.questions.forEach(q => {
+        delete state.answered[q.id];
+    });
+    saveState();
+    updateScoreDisplay();
+    renderGrid();
+    selectSubject(subjectId);
 }
 document.addEventListener('keydown',function(e){
 if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
