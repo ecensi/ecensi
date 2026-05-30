@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSI 2026 — Épreuve Pratique</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffffff;--bg2:#f5f5f5;--text:#0a0a0a;--text2:#333;--border:#e0e0e0;--r:#ff2244;--o:#ff8800;--y:#ffe000;--g:#00dd66;--b:#0088ff;--i:#6600ff;--v:#cc00ff;--glow-r:0 0 18px #ff224488;--glow-g:0 0 18px #00dd6688;--glow-b:0 0 18px #0088ff88;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:#fff;color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+.rainbow-bar{height:5px;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:200% 100%;animation:rainbow-slide 3s linear infinite}
+@keyframes rainbow-slide{0%{background-position:0% 0%}100%{background-position:200% 0%}}
+header{background:#fff;border-bottom:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 24px rgba(0,0,0,.06)}
+.header-title{font-family:var(--mono);font-weight:800;font-size:1.3rem;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:rainbow-slide 4s linear infinite;letter-spacing:-.5px}
+.header-sub{font-size:.75rem;color:#888;margin-top:2px;font-family:var(--mono)}
+.score-pill{font-family:var(--mono);font-size:.85rem;padding:6px 16px;border-radius:999px;border:2px solid transparent;background:linear-gradient(white,white) padding-box,linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v)) border-box;font-weight:700;color:var(--text);animation:pulse-border 2s ease-in-out infinite}
+@keyframes pulse-border{0%,100%{box-shadow:none}50%{box-shadow:0 0 12px #0088ff44}}
+.main-wrap{max-width:1200px;margin:0 auto;padding:32px 24px 80px}
+
+/* PDF banner */
+.pdf-banner{background:linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 100%);border-radius:16px;padding:24px 28px;margin-bottom:32px;display:flex;align-items:center;gap:20px;border:2px solid #2a2a4a;position:relative;overflow:hidden}
+.pdf-banner::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(255,255,255,.01) 20px,rgba(255,255,255,.01) 40px)}
+.pdf-icon{font-size:3rem;flex-shrink:0;filter:drop-shadow(0 0 12px rgba(0,136,255,.5))}
+.pdf-info{flex:1}
+.pdf-title{font-family:var(--mono);font-weight:800;font-size:1.1rem;color:#fff;margin-bottom:6px}
+.pdf-desc{font-size:.82rem;color:#aaa;font-family:var(--mono);line-height:1.6}
+.pdf-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.pdf-link{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:6px 14px;border-radius:6px;text-decoration:none;border:1px solid;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
+.pdf-link.primary{background:var(--b);color:#fff;border-color:var(--b)}
+.pdf-link.primary:hover{background:#0066cc;box-shadow:var(--glow-b)}
+.pdf-link.secondary{background:transparent;color:#aaa;border-color:#333}
+.pdf-link.secondary:hover{border-color:#888;color:#fff}
+
+/* Subject grid */
+.subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:36px}
+.subj-btn{background:#fff;border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--text2);transition:all .2s;position:relative;overflow:hidden;user-select:none}
+.subj-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1);border-color:#bbb}
+.subj-btn.active{border-color:transparent;color:#fff;background:linear-gradient(135deg,var(--r),var(--b));box-shadow:0 0 20px rgba(0,136,255,.3);transform:translateY(-2px)}
+.subj-num{font-size:1.3rem;display:block;margin-bottom:2px}
+.subj-status{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#ddd}
+.subj-status.done{background:var(--g);box-shadow:0 0 6px var(--g)}
+.subj-status.wip{background:var(--o);box-shadow:0 0 6px var(--o)}
+
+/* Subject card */
+.subject-card{background:#fff;border:2px solid var(--border);border-radius:16px;overflow:hidden;animation:slideIn .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+.card-header{padding:22px 26px;border-bottom:2px solid var(--border);display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.card-badge{font-family:var(--mono);font-size:.68rem;font-weight:800;padding:4px 10px;border-radius:6px;flex-shrink:0;letter-spacing:1px;text-transform:uppercase}
+.card-title{font-weight:700;font-size:1.2rem;color:var(--text);margin-bottom:4px}
+.card-sub{font-size:.8rem;color:#888;font-family:var(--mono)}
+.card-python-link{font-family:var(--mono);font-size:.7rem;padding:4px 10px;border-radius:6px;background:#0a0a0a;color:#00ff88;text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-top:6px;transition:all .2s;border:1px solid #1a4a2a}
+.card-python-link:hover{background:#0f1a0f;box-shadow:0 0 12px rgba(0,255,136,.2)}
+
+/* Subject statement block */
+.subject-statement{margin:0 24px 8px;padding:20px;background:#fafafa;border:1px solid var(--border);border-radius:12px;font-size:.88rem;line-height:1.75;color:#222}
+.subject-statement h4{font-family:var(--mono);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#888;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.subject-statement h4::after{content:'';flex:1;height:1px;background:var(--border)}
+.subject-statement pre{background:#0a0a0a;color:#00ff88;padding:12px 14px;border-radius:8px;font-size:.78rem;overflow-x:auto;margin:10px 0;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
+.subject-statement table{width:100%;border-collapse:collapse;font-size:.82rem;margin:8px 0}
+.subject-statement th{background:#f0f0f0;padding:6px 10px;text-align:left;font-weight:700;border:1px solid #ddd}
+.subject-statement td{padding:5px 10px;border:1px solid #ddd}
+
+/* Questions */
+.questions-wrap{padding:20px 24px;display:flex;flex-direction:column;gap:18px}
+.question-block{border:2px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .3s,box-shadow .3s}
+.question-block.answered-correct{border-color:var(--g);box-shadow:0 0 0 2px #00dd6622}
+.question-block.answered-wrong{border-color:var(--r);box-shadow:0 0 0 2px #ff224422}
+.q-header{padding:14px 18px;background:#f9f9f9;display:flex;align-items:flex-start;gap:10px}
+.q-num{font-family:var(--mono);font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:5px;flex-shrink:0;margin-top:2px}
+.q-text{font-size:.9rem;line-height:1.7;color:var(--text)}
+.q-text code{font-family:var(--mono);background:#f0f0f0;padding:1px 5px;border-radius:4px;font-size:.84em;color:#0066cc}
+.q-text pre{background:#0a0a0a;color:#00ff88;padding:12px;border-radius:8px;font-size:.78rem;overflow-x:auto;margin:8px 0;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
+
+/* Code area */
+.code-area-wrap{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
+.code-label{font-family:var(--mono);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#888}
+textarea.code-input{width:100%;min-height:130px;font-family:var(--mono);font-size:.82rem;padding:12px 14px;border:2px solid var(--border);border-radius:8px;background:#fafafa;color:var(--text);resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;tab-size:4;line-height:1.6}
+textarea.code-input:focus{border-color:var(--b);box-shadow:0 0 0 3px #0088ff18;background:#fff}
+textarea.text-input{width:100%;min-height:80px;font-family:var(--sans);font-size:.88rem;padding:10px 12px;border:2px solid var(--border);border-radius:8px;background:#fafafa;color:var(--text);resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.6}
+textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff18}
+
+/* Multiple choice */
+.mc-wrap{display:flex;flex-direction:column;gap:8px}
+.mc-option{display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;user-select:none;font-size:.88rem}
+.mc-option:hover{border-color:#aaa;background:#f5f5f5}
+.mc-option.selected{border-color:var(--b);background:#e8f2ff}
+.mc-option.correct-ans{border-color:var(--g);background:#e8ffe8}
+.mc-option.wrong-ans{border-color:var(--r);background:#ffe8e8}
+.mc-radio{width:16px;height:16px;border:2px solid #bbb;border-radius:50%;flex-shrink:0;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.mc-option.selected .mc-radio{border-color:var(--b);background:var(--b)}
+.mc-option.selected .mc-radio::after{content:'';width:6px;height:6px;background:#fff;border-radius:50%}
+.mc-option.correct-ans .mc-radio{border-color:var(--g);background:var(--g)}
+.mc-option.wrong-ans .mc-radio{border-color:var(--r);background:var(--r)}
+
+/* Buttons */
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font-family:var(--mono);font-size:.76rem;font-weight:700;padding:8px 16px;border-radius:8px;border:2px solid transparent;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px;user-select:none;letter-spacing:.5px}
+.btn:active{transform:scale(.96)}
+.btn-check{background:#0a0a0a;color:#fff;border-color:#0a0a0a}
+.btn-check:hover{background:#fff;color:#0a0a0a;box-shadow:0 0 0 2px #0a0a0a}
+.btn-reveal{background:#fff;color:var(--i);border-color:var(--i)}
+.btn-reveal:hover{background:var(--i);color:#fff}
+.btn-reset{background:#fff;color:#888;border-color:#ddd}
+.btn-reset:hover{border-color:#aaa;color:#555}
+
+/* Feedback */
+.feedback{padding:14px 16px;border-radius:8px;font-size:.86rem;line-height:1.65;display:none;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.feedback.show{display:block}
+.feedback.correct{background:#f0fff6;border:2px solid var(--g);color:#006633}
+.feedback.wrong{background:#fff5f5;border:2px solid var(--r);color:#990022}
+.feedback.reveal{background:#f5f0ff;border:2px solid var(--i);color:#330099}
+.feedback pre{background:#0a0a0a;color:#00ff88;padding:12px 14px;border-radius:8px;margin-top:10px;font-size:.78rem;overflow-x:auto;line-height:1.5;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
+.feedback .feedback-title{font-weight:700;font-family:var(--mono);font-size:.76rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+
+/* Hint */
+.hint-btn{font-family:var(--mono);font-size:.68rem;background:none;border:1px dashed #ccc;color:#aaa;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .2s}
+.hint-btn:hover{border-color:var(--o);color:var(--o)}
+.hint-box{background:#fffbe6;border:1px solid #ffe066;border-radius:8px;padding:10px 14px;font-size:.8rem;color:#665500;display:none;animation:fadeUp .2s ease;font-family:var(--mono)}
+.hint-box.show{display:block}
+
+/* Progress */
+.progress-wrap{margin-bottom:28px}
+.progress-label{font-family:var(--mono);font-size:.73rem;color:#888;margin-bottom:6px;display:flex;justify-content:space-between}
+.progress-bar{height:6px;border-radius:999px;background:#e8e8e8;overflow:hidden}
+.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:200% 100%;animation:rainbow-slide 2s linear infinite;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
+
+/* Section titles */
+.section-title{font-family:var(--mono);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#aaa;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.rainbow-dot{display:inline-block;width:10px;height:10px;border-radius:50%;animation:hue-shift 3s linear infinite}
+@keyframes hue-shift{0%{background:var(--r);box-shadow:0 0 8px var(--r)}16%{background:var(--o);box-shadow:0 0 8px var(--o)}33%{background:var(--y);box-shadow:0 0 8px var(--y)}50%{background:var(--g);box-shadow:0 0 8px var(--g)}66%{background:var(--b);box-shadow:0 0 8px var(--b)}83%{background:var(--i);box-shadow:0 0 8px var(--i)}100%{background:var(--v);box-shadow:0 0 8px var(--v)}}
+
+/* Not finished */
+.not-finished{padding:40px 28px;text-align:center;color:#888;font-family:var(--mono);font-size:.88rem}
+.nf-icon{font-size:3rem;display:block;margin-bottom:12px;animation:float 2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* Confetti canvas */
+#confetti-canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999}
+
+/* Streak banner */
+#streak-banner{position:fixed;top:80px;left:50%;transform:translateX(-50%) translateY(-100px);background:#0a0a0a;color:#fff;font-family:var(--mono);font-weight:800;font-size:1.1rem;padding:12px 28px;border-radius:999px;z-index:1000;transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none;box-shadow:0 8px 32px rgba(0,0,0,.2)}
+#streak-banner.show{transform:translateX(-50%) translateY(0)}
+
+/* Badges */
+.tag{font-family:var(--mono);font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+.q-num-1{background:#ff224422;color:var(--r)}.q-num-2{background:#ff880022;color:var(--o)}.q-num-3{background:#00dd6622;color:var(--g)}.q-num-4{background:#0088ff22;color:var(--b)}.q-num-5{background:#cc00ff22;color:var(--v)}.q-num-6{background:#ff224422;color:var(--r)}
+.badge-1{background:#ff224422;color:var(--r)}.badge-2{background:#ff880022;color:var(--o)}.badge-3{background:#ffe00022;color:#cc9900}.badge-4{background:#00dd6622;color:var(--g)}.badge-5{background:#0088ff22;color:var(--b)}.badge-6{background:#6600ff22;color:var(--i)}.badge-7{background:#cc00ff22;color:var(--v)}.badge-8{background:#ff224422;color:var(--r)}.badge-9{background:#ff880022;color:var(--o)}.badge-10{background:#ffe00022;color:#cc9900}.badge-11{background:#00dd6622;color:var(--g)}.badge-12{background:#0088ff22;color:var(--b)}.badge-13{background:#6600ff22;color:var(--i)}.badge-14{background:#cc00ff22;color:var(--v)}.badge-15{background:#ff224422;color:var(--r)}.badge-16{background:#ff880022;color:var(--o)}.badge-17{background:#ffe00022;color:#cc9900}.badge-18{background:#00dd6622;color:var(--g)}.badge-19{background:#0088ff22;color:var(--b)}.badge-20{background:#6600ff22;color:var(--i)}.badge-21{background:#cc00ff22;color:var(--v)}.badge-22{background:#ff224422;color:var(--r)}.badge-23{background:#ff880022;color:var(--o)}
+
+@media(max-width:600px){header{padding:14px}.main-wrap{padding:16px 12px 60px}.questions-wrap{padding:14px}.card-header{padding:14px}}
+</style>
+</head>
+<body>
+<canvas id="confetti-canvas"></canvas>
+<div id="streak-banner">🔥 Bonne réponse !</div>
+<div class="rainbow-bar"></div>
+<header>
+  <div>
+    <div class="header-title">NSI BNS 2026</div>
+    <div class="header-sub">Épreuve Pratique — Terminale Générale</div>
+  </div>
+  <div class="score-pill" id="score-display">⚡ 0 / 0</div>
+</header>
+<div class="main-wrap">
+
+  <!-- PDF BANNER -->
+  <div class="pdf-banner">
+    <div class="pdf-icon">📄</div>
+    <div class="pdf-info">
+      <div class="pdf-title">Banque Nationale de Sujets 2026 — NSI</div>
+      <div class="pdf-desc">23 sujets officiels • Durée 1h • Python • Partie pratique Terminale voie générale<br>Tous les fichiers Python (.py) sont disponibles sur ecebac.fr</div>
+      <div class="pdf-links">
+        <a class="pdf-link primary" href="https://ecebac.fr/listaca.php?mat=94" target="_blank">📚 Voir tous les sujets sur ecebac.fr</a>
+        <a class="pdf-link secondary" href="https://ecebac.fr/dl.php?path=L3N1amV0cy8yMDI2L05TSS8yMDI2LU5TSS56aXA%3D" target="_blank">⬇️ Télécharger tous les sujets (.zip)</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-label"><span>Progression globale</span><span id="progress-pct">0%</span></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  </div>
+  <div class="section-title"><span class="rainbow-dot"></span> Choisir un sujet</div>
+  <div class="subject-grid" id="subject-grid"></div>
+  <div id="subject-content"></div>
+</div>
+<script>
+// =====================================================
+// AUDIO
+// =====================================================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let actx;
+function getACtx(){if(!actx)actx=new AudioCtx();return actx}
+function playTone(freq,type='sine',duration=.15,vol=.3){try{const ctx=getACtx(),osc=ctx.createOscillator(),gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.type=type;osc.frequency.setValueAtTime(freq,ctx.currentTime);gain.gain.setValueAtTime(vol,ctx.currentTime);gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+duration);osc.start(ctx.currentTime);osc.stop(ctx.currentTime+duration)}catch(e){}}
+function playSuccess(){[523.25,659.25,783.99,1046.5].forEach((f,i)=>setTimeout(()=>playTone(f,'sine',.18,.25),i*80));setTimeout(()=>playTone(1318.5,'sine',.4,.3),320)}
+function playFail(){[200,180].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth',.2,.18),i*120))}
+function playClick(){playTone(880,'sine',.05,.08)}
+function playReveal(){[440,523,659].forEach((f,i)=>setTimeout(()=>playTone(f,'triangle',.12,.15),i*70))}
+
+// =====================================================
+// CONFETTI
+// =====================================================
+const canvas=document.getElementById('confetti-canvas');
+const ctx2d=canvas.getContext('2d');
+canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+window.addEventListener('resize',()=>{canvas.width=window.innerWidth;canvas.height=window.innerHeight});
+const COLORS=['#ff2244','#ff8800','#ffe000','#00dd66','#0088ff','#6600ff','#cc00ff'];
+let confetti=[];
+function launchConfetti(x,y){for(let i=0;i<80;i++){const a=Math.random()*Math.PI*2,s=4+Math.random()*8;confetti.push({x:x||window.innerWidth/2,y:y||window.innerHeight/2,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(Math.random()*5),color:COLORS[Math.floor(Math.random()*COLORS.length)],size:5+Math.random()*7,rot:Math.random()*360,rotS:(Math.random()-.5)*12,grav:.35+Math.random()*.2,life:1,shape:Math.random()>.5?'rect':'circle'})}requestAnimationFrame(animateConf)}
+function animateConf(){ctx2d.clearRect(0,0,canvas.width,canvas.height);confetti=confetti.filter(p=>p.life>.01);confetti.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=p.grav;p.vx*=.99;p.rot+=p.rotS;p.life-=.013;ctx2d.save();ctx2d.globalAlpha=p.life;ctx2d.translate(p.x,p.y);ctx2d.rotate(p.rot*Math.PI/180);ctx2d.fillStyle=p.color;if(p.shape==='rect')ctx2d.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);else{ctx2d.beginPath();ctx2d.arc(0,0,p.size/2,0,Math.PI*2);ctx2d.fill()}ctx2d.restore()});if(confetti.length>0)requestAnimationFrame(animateConf);else ctx2d.clearRect(0,0,canvas.width,canvas.height)}
+
+// =====================================================
+// STREAK BANNER
+// =====================================================
+let streakTimer;
+function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
+
+// =====================================================
+// SCORE
+// =====================================================
+let totalAnswered=0,totalCorrect=0,totalQuestions=0;
+function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress()}
+function updateProgress(){const pct=totalQuestions>0?Math.round(totalAnswered/totalQuestions*100):0;document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('progress-pct').textContent=pct+'%'}
+
+// =====================================================
+// SUBJECTS DATA
+// =====================================================
+const SUBJECTS=[
+{
+  id:1,title:"Codage RLE d'images",theme:"Compression • PIL • Traitement d'images",badge:1,
+  ecebac_url:"https://ecebac.fr/sujet/4267",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDEvcmxlLnB5",
+  statement:`<strong>Contexte :</strong> On considère des images en niveaux de gris (pixels 0-255). On représente une image comme une liste aplatie de pixels ligne par ligne.<br><br>
+Le <strong>codage RLE</strong> (Run-Length Encoding) remplace chaque suite de valeurs identiques par un couple <code>(compte, valeur)</code> aplati. Ex: <code>[4,4,4,0,5,5]</code> → <code>[3,4,1,0,2,5]</code>.<br><br>
+La fonction <code>codage_rle(liste_octets)</code> est fournie. Elle parcourt la liste et groupe les valeurs identiques consécutives.`,
+  questions:[
+    {id:"1-1",num:1,type:"mc",
+     text:`<strong>Question 1 :</strong> La liste obtenue par codage RLE est-elle forcément de longueur inférieure ou égale à la liste de départ ?`,
+     hint:"Testez avec une liste [3, 5, 0, 6] sans répétitions.",
+     options:["Oui, toujours — la compression est toujours efficace.","Non, pas forcément — la liste RLE peut être plus longue.","Oui, si et seulement si la liste a plus de 4 éléments.","Cela dépend du système d'exploitation."],
+     correct_idx:1,
+     correction:`Non, pas forcément. La liste RLE peut être plus longue que l'originale.\n\nExemple : [3, 5, 0, 6] n'a aucune répétition → RLE = [1,3, 1,5, 1,0, 1,6] (8 éléments au lieu de 4).\nC'est seulement si la liste contient beaucoup de répétitions (ex: [0,0,0,0,0] → [5,0]) que RLE est plus courte.`
+    },
+    {id:"1-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> En étudiant la fonction <code>codage_rle</code> fournie, écrire le corps de la fonction <code>decodage_rle(liste_rle)</code> qui réalise le décodage d'une liste RLE vers la liste originale.<br><br>Tests :<br><code>decodage_rle([2, 255, 1, 0, 3, 255]) == [255, 255, 0, 255, 255, 255]</code><br><code>decodage_rle([4, 85]) == [85, 85, 85, 85]</code><br><code>decodage_rle([1, 0]) == [0]</code>`,
+     hint:"La liste RLE est structurée en paires (compte, valeur). Parcourir de 2 en 2 avec range(0, len, 2).",
+     starter:`def decodage_rle(liste_rle):
+    '''Renvoie la liste d'octets à partir de la liste RLE'''
+    lst = []
+    for i in range(0, len(liste_rle), 2):
+        # i est l'indice du "compte", i+1 celui de la "valeur"
+        pass  # À compléter
+    return lst
+
+def test_codage():
+    assert decodage_rle([2, 255, 1, 0, 3, 255]) == [255, 255, 0, 255, 255, 255]
+    assert decodage_rle([4, 85]) == [85, 85, 85, 85]
+    assert decodage_rle([1, 0]) == [0]
+    print("Tests OK")`,
+     answer_keywords:["range(0,","range(liste_rle","append","for k in range","return lst"],
+     correction:`def decodage_rle(liste_rle):
+    '''Renvoie la liste d'octets à partir de la liste RLE'''
+    lst = []
+    for i in range(0, len(liste_rle), 2):
+        for k in range(liste_rle[i]):
+            lst.append(liste_rle[i+1])
+    return lst`
+    },
+    {id:"1-3",num:3,type:"text",
+     text:`<strong>Question 3 :</strong> Utiliser la fonction fournie <code>encoder_decoder_image</code> sur les images <code>bac_nsi_32.png</code> et <code>bac_nsi_256.png</code>.<br><br>Décrire et expliquer la différence de comportement observée entre les deux images. Pourquoi l'image 256 pose-t-elle problème ?`,
+     hint:"Réfléchissez à la taille maximale d'un octet (valeur max : 255) et aux images larges.",
+     starter:`# Exécuter :
+encoder_decoder_image("bac_nsi_32.png")    # Résultat attendu : image OK
+encoder_decoder_image("bac_nsi_256.png")   # Résultat attendu : image décalée/corrompue
+
+# Explication à écrire ci-dessous :
+# Sur bac_nsi_256.png...`,
+     answer_keywords:["255","255 pixels","décalage","dépassement","octet","grande image","plus de 255"],
+     correction:`Pour bac_nsi_32.png : tout fonctionne correctement, l'image est fidèlement encodée puis décodée.\n\nPour bac_nsi_256.png : on observe un décalage de l'écriture dans l'image reconstruite. Les zones noires ou uniformes sont décalées.\n\nCause : sur une image 256×256, certaines lignes uniformes ont plus de 255 pixels consécutifs de même valeur. Or le "compte" est un entier Python non borné, mais stocké dans un fichier PNG sur 1 octet (max 255). Le dépassement corrompt le flux de données.`
+    },
+    {id:"1-4",num:4,type:"code",
+     text:`<strong>Question 4 :</strong> Le problème précédent est lié au fait que sur des grandes images, il est possible d'avoir plus de 255 pixels de la même couleur.<br><br>Proposer une modification de la fonction <code>codage_rle</code> pour résoudre ce problème : limiter chaque "compte" à 255 maximum en découpant les longues séquences.`,
+     hint:"Dans la boucle while interne, ajouter la condition k < 255. Quand le compteur atteint 255, enregistrer le couple et repartir.",
+     starter:`def codage_rle(liste_octets):
+    '''Version corrigée : limite le compte à 255 max'''
+    liste_rle = []
+    i = 0
+    while i < len(liste_octets):
+        c = liste_octets[i]
+        k = 1
+        # Condition modifiée : ajouter k < 255
+        while i + k < len(liste_octets) and liste_octets[i + k] == c:
+            k += 1
+        liste_rle.append(k)
+        liste_rle.append(c)
+        i += k
+    return liste_rle`,
+     answer_keywords:["k < 255","255","while","min(","and k"],
+     correction:`def codage_rle(liste_octets):
+    '''Version corrigée : limite le compte à 255 max'''
+    liste_rle = []
+    i = 0
+    while i < len(liste_octets):
+        c = liste_octets[i]
+        k = 1
+        while i + k < len(liste_octets) and liste_octets[i + k] == c and k < 255:
+            k += 1
+        liste_rle.append(k)
+        liste_rle.append(c)
+        i += k
+    return liste_rle`
+    }
+  ]
+},
+{
+  id:2,title:"Analyse d'écarts de salaires",theme:"Dictionnaires • k-NN • Débogage",badge:2,
+  ecebac_url:"https://ecebac.fr/sujet/4268",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDIvYW5hbHlzZS5weQ==",
+  statement:`<strong>Contexte :</strong> On dispose de données d'employés. Chaque employé est un dictionnaire :<br>
+<code>{'experience': 5, 'etudes': 3, 'sexe': 'F', 'salaire': 2400}</code><br><br>
+<table><tr><th>Champ</th><th>Type</th><th>Description</th></tr>
+<tr><td>experience</td><td>int</td><td>Années d'expérience</td></tr>
+<tr><td>etudes</td><td>int</td><td>Années d'études post-bac</td></tr>
+<tr><td>sexe</td><td>str</td><td>'F' ou 'M'</td></tr>
+<tr><td>salaire</td><td>int</td><td>Salaire en €</td></tr></table><br>
+Formule de l'écart : <strong>écart = (moy_hommes − moy_femmes) / moy_hommes × 100</strong>`,
+  questions:[
+    {id:"2-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Écrire la fonction <code>salaire_moyen_condition(employes, champ, valeur)</code> qui renvoie le salaire moyen des employés dont la valeur associée au champ est égale à <code>valeur</code>. Renvoyer <code>None</code> s'il n'y a aucun employé correspondant.<br><br>Exemple : <code>salaire_moyen_condition(employes, 'sexe', 'F')</code> → salaire moyen des femmes.`,
+     hint:"Utiliser un compteur n et une somme s. Vérifier n == 0 avant la division.",
+     starter:`def salaire_moyen_condition(employes, champ, valeur):
+    s = 0
+    n = 0
+    for employe in employes:
+        if employe[champ] == valeur:
+            pass  # À compléter : accumuler salaire et incrémenter n
+    if n == 0:
+        return None
+    return ...  # À compléter`,
+     answer_keywords:["employe[champ]","== valeur","s +=","salaire","n == 0","None","return s/n","return s /"],
+     correction:`def salaire_moyen_condition(employes, champ, valeur):
+    s = 0
+    n = 0
+    for employe in employes:
+        if employe[champ] == valeur:
+            s += employe['salaire']
+            n += 1
+    if n == 0:
+        return None
+    return s / n`
+    },
+    {id:"2-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <code>effectif_par_sexe(employes)</code> qui prend un tableau non vide d'employés et renvoie un dictionnaire <code>{'F': nb_femmes, 'M': nb_hommes}</code>.<br><br>Exemple : <code>effectif_par_sexe(employes)</code> → <code>{'F': 3, 'M': 3}</code>`,
+     hint:"Compter nf et nh en parcourant la liste, vérifier employe['sexe'].",
+     starter:`def effectif_par_sexe(employes):
+    nf = 0
+    nh = 0
+    for employe in employes:
+        pass  # À compléter
+    return {'F': nf, 'M': nh}`,
+     answer_keywords:["nf","nh","sexe","'F'","'M'","nf += 1","nh += 1","return"],
+     correction:`def effectif_par_sexe(employes):
+    nf = 0
+    nh = 0
+    for employe in employes:
+        if employe['sexe'] == 'F':
+            nf += 1
+        else:
+            nh += 1
+    return {'F': nf, 'M': nh}`
+    },
+    {id:"2-3",num:3,type:"text",
+     text:`<strong>Question 3 :</strong> La fonction <code>calcul_ecart_sexe</code> du fichier <code>analyse.py</code> est incorrecte.<br><br>Expliquer pourquoi ce code est incorrect. Proposer des tests sous forme d'assertions et écrire une version corrigée nommée <code>ecart_salaire</code>. En déduire l'écart de salaire moyen dans les données complètes.`,
+     hint:"Deux erreurs : (1) le paramètre est passé entre guillemets, (2) le calcul n'est pas une division mais une différence.",
+     starter:`# Analyse de l'erreur dans calcul_ecart_sexe :
+# Erreur 1 : ...
+# Erreur 2 : ...
+
+def ecart_salaire(employes):
+    moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
+    moy_f = salaire_moyen_condition(employes, 'sexe', 'F')
+    if moy_h is None or moy_f is None:
+        return None
+    return ...  # À compléter : formule correcte
+
+# Tests :
+assert ecart_salaire([{'experience':5,'etudes':3,'sexe':'F','salaire':2400}]) == None
+assert 0 <= ecart_salaire(employes) <= 100`,
+     answer_keywords:["/ moy_h","* 100","moy_h - moy_f","None","guillemets","is None","return"],
+     correction:`# Erreur 1 : dans la version originale, employes est passé entre guillemets ('employes') → NameError
+# Erreur 2 : le calcul retourne juste (moy_h - moy_f) au lieu de (moy_h - moy_f) / moy_h * 100
+
+def ecart_salaire(employes):
+    eff = effectif_par_sexe(employes)
+    if eff['F'] == 0 or eff['M'] == 0:
+        return None
+    moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
+    moy_f = salaire_moyen_condition(employes, 'sexe', 'F')
+    return (moy_h - moy_f) / moy_h * 100
+
+# Tests :
+assert ecart_salaire([{'experience':5,'etudes':3,'sexe':'F','salaire':2400}]) == None
+assert 0 <= ecart_salaire(employes) <= 100
+# Avec données complètes → écart ≈ 8.6%`
+    },
+    {id:"2-4",num:4,type:"text",
+     text:`<strong>Question 4 :</strong> La fonction <code>salaire_par_proximite</code> utilise l'algorithme des k-plus proches voisins pour prédire un salaire.<br><br>Tester et comparer les salaires proposés pour :<br>• <code>{'experience': 3, 'etudes': 3, 'sexe': 'F'}</code><br>• <code>{'experience': 3, 'etudes': 3, 'sexe': 'M'}</code><br><br>Identifier la source des écarts et écrire une version corrigée de la fonction <code>distance</code>.`,
+     hint:"La fonction distance inclut le champ 'sexe' dans le calcul. 'F' ≠ 'M' augmente artificiellement la distance entre personnes de sexes différents.",
+     starter:`# Tests :
+print(salaire_par_proximite(employes, {'experience':3,'etudes':3,'sexe':'F'}))
+print(salaire_par_proximite(employes, {'experience':3,'etudes':3,'sexe':'M'}))
+
+# Analyse : le champ 'sexe' est inclus dans la distance → biais selon le sexe
+# Correction de la fonction distance :
+def distance(e1, e2):
+    s = 0
+    # Ne PAS inclure le sexe dans la distance !
+    s += (e1['experience'] - e2['experience'])**2
+    s += (e1['etudes'] - e2['etudes'])**2
+    return sqrt(s)`,
+     answer_keywords:["sexe","distance","experience","etudes","sqrt","sans","supprim","biais","pas inclure"],
+     correction:`Problème : la fonction distance originale inclut le champ 'sexe' dans le calcul. Or 'F' et 'M' sont des chaînes → leur différence est 4 (ord('M')-ord('F')=8 ou traitement spécial). Cela biaise les voisins selon le sexe et fausse les prédictions.
+
+Correction — exclure 'sexe' du calcul de distance :
+def distance(e1, e2):
+    s = 0
+    s += (e1['experience'] - e2['experience'])**2
+    s += (e1['etudes'] - e2['etudes'])**2
+    return sqrt(s)
+
+Résultat après correction :
+- Candidat F : ~2483€  (sans biais de sexe)
+- Candidat M : ~2483€  (même résultat, ce qui est juste)`
+    }
+  ]
+},
+{
+  id:3,title:"Cycle menstruel",theme:"Dates • iCalendar • ics",badge:3,
+  ecebac_url:"https://ecebac.fr/sujet/4269",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDMvY3ljbGVfbWVuc3RydWVsLnB5",
+  statement:`<strong>Contexte :</strong> On modélise le cycle menstruel (28 jours). Phases :<br>
+<table><tr><th>Phase</th><th>N°</th><th>Jours</th></tr>
+<tr><td>Règles</td><td>1</td><td>1–5</td></tr>
+<tr><td>Phase folliculaire</td><td>2</td><td>6–13</td></tr>
+<tr><td>Ovulation</td><td>3</td><td>14</td></tr>
+<tr><td>Phase lutéale</td><td>4</td><td>15–28</td></tr></table><br>
+Une date est représentée par le tuple <code>(jour, mois, annee)</code>. Ex: <code>(7, 9, 2025)</code> = 7 septembre 2025.`,
+  questions:[
+    {id:"3-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Écrire la fonction <code>est_bissextile(n)</code> qui prend un entier (année) et renvoie un booléen indiquant si l'année est bissextile.<br><br>Règle : une année est bissextile si elle est divisible par 4, sauf les multiples de 100, sauf les multiples de 400.<br>Exemples : 2024 → True, 2100 → False, 2000 → True.`,
+     hint:"Commencer par tester % 400 == 0 (True), puis % 4 == 0 and % 100 != 0 (True), sinon False.",
+     starter:`def est_bissextile(n):
+    '''Renvoie True si l'année n est bissextile, False sinon'''
+    if n % 400 == 0:
+        return True
+    elif n % 4 == 0 and n % 100 != 0:
+        return ...  # À compléter
+    else:
+        return ...  # À compléter
+
+# Tests rapides :
+assert est_bissextile(2024) == True
+assert est_bissextile(2100) == False
+assert est_bissextile(2000) == True`,
+     answer_keywords:["% 400","% 100","% 4","True","False","return"],
+     correction:`def est_bissextile(n):
+    '''Renvoie True si l'année n est bissextile, False sinon'''
+    if n % 400 == 0:
+        return True
+    elif n % 4 == 0 and n % 100 != 0:
+        return True
+    else:
+        return False`
+    },
+    {id:"3-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <code>determiner_phase(n)</code> qui prend un entier entre 1 et 28 (numéro du jour dans le cycle) et renvoie le numéro de phase (1 à 4).<br><br>Utiliser une <strong>assertion</strong> pour garantir que n ∈ [1, 28].`,
+     hint:"assert n >= 1 and n <= 28, puis enchaîner les if/elif selon les intervalles de jours.",
+     starter:`def determiner_phase(n):
+    '''Renvoie le numéro de phase (1-4) pour le jour n du cycle'''
+    assert 1 <= n <= 28, "Le jour doit être entre 1 et 28"
+    if n <= 5:
+        return 1
+    elif n <= 13:
+        return ...  # À compléter
+    elif n == 14:
+        return ...  # À compléter
+    else:
+        return ...  # À compléter`,
+     answer_keywords:["assert","<= 28",">= 1","if n <= 5","elif n <= 13","elif n == 14","return 1","return 2","return 3","return 4"],
+     correction:`def determiner_phase(n):
+    '''Renvoie le numéro de phase (1-4) pour le jour n du cycle'''
+    assert 1 <= n <= 28, "Le jour doit être entre 1 et 28"
+    if n <= 5:
+        return 1
+    elif n <= 13:
+        return 2
+    elif n == 14:
+        return 3
+    else:
+        return 4`
+    },
+    {id:"3-3",num:3,type:"code",
+     text:`<strong>Question 3 :</strong> La fonction <code>ajouter_jours(date, n)</code> est fournie. Elle prend un tuple <code>(jour, mois, annee)</code> et renvoie la date après ajout de <code>n</code> jours.<br><br>Compléter la fonction <code>test_ajouter_jours</code> avec au moins <strong>3 tests supplémentaires pertinents</strong>, chacun avec un commentaire justifiant son importance.`,
+     hint:"Tester : changement de mois (août 31j), changement d'année (31 déc), février bissextile (2024), février non-bissextile (2025).",
+     starter:`def test_ajouter_jours():
+    # Test fourni :
+    assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
+
+    # Test 1 : À compléter — changement de mois (mois à 31 jours)
+    assert ajouter_jours(...) == ...
+    # Justification : ...
+
+    # Test 2 : À compléter — changement d'année
+    assert ajouter_jours(...) == ...
+    # Justification : ...
+
+    # Test 3 : À compléter — février année bissextile
+    assert ajouter_jours(...) == ...
+    # Justification : ...
+
+    print("Tous les tests sont OK")`,
+     answer_keywords:["assert ajouter_jours","# ","==","(1, 1, 2026)","(1, 9, 2025)","31, 12","28, 2","2024"],
+     correction:`def test_ajouter_jours():
+    assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
+
+    assert ajouter_jours((29, 8, 2025), 3) == (1, 9, 2025)
+    # Changement de mois sur un mois à 31 jours (août)
+
+    assert ajouter_jours((31, 12, 2025), 1) == (1, 1, 2026)
+    # Changement d'année (31 décembre)
+
+    assert ajouter_jours((28, 2, 2024), 3) == (2, 3, 2024)
+    # Février d'une année bissextile 2024 (29 jours)
+
+    assert ajouter_jours((28, 2, 2025), 3) == (3, 3, 2025)
+    # Février d'une année non-bissextile 2025 (28 jours)
+
+    assert ajouter_jours((29, 9, 2025), 3) == (2, 10, 2025)
+    # Changement de mois sur un mois à 30 jours (septembre)
+
+    print("Tous les tests sont OK")`
+    },
+    {id:"3-4",num:4,type:"text",
+     text:`<strong>Question 4 :</strong> La fonction <code>calendrier_cycles</code> génère un fichier iCalendar avec les dates de début de règles dans les 100 jours suivants. Le format iCalendar exige la date au format <code>AAAAMMJJ</code> (8 caractères, zéros inclus).<br><br>Ex : 3 juillet 2026 → <code>20260703</code> (et non <code>202673</code>).<br><br>Observer avec <code>test_calendrier_cycles</code> que le format est invalide. Identifier le problème et proposer une correction.`,
+     hint:"La ligne date = str(annee)+str(mois)+str(jour) ne complète pas avec un zéro les mois/jours < 10.",
+     starter:`# Exécuter test_calendrier_cycles() pour observer l'erreur
+# Le problème est dans la construction de la chaîne de date
+
+# Correction de la ligne problématique :
+# Avant : date = str(annee) + str(mois) + str(jour)
+# Après :
+date = f"{annee}{mois:02d}{jour:02d}"
+# OU :
+date = str(annee) + '{:02d}'.format(mois) + '{:02d}'.format(jour)`,
+     answer_keywords:[":02d","format","zfill","02","zéro","f\"","f'"],
+     correction:`Problème : la ligne originale :
+    date = str(annee) + str(mois) + str(jour)
+produit "202575" pour le 5 juillet 2025 au lieu de "20250705".
+Les mois et jours < 10 ne sont pas complétés avec un zéro.
+
+Correction :
+    date = f"{annee}{mois:02d}{jour:02d}"
+
+OU :
+    date = str(annee) + '{:02d}'.format(mois) + '{:02d}'.format(jour)
+
+Résultat : "20250705" → format iCalendar valide (longueur 8 garantie).`
+    }
+  ]
+},
+{
+  id:4,title:"Culture de plantes en serre",theme:"POO • Listes • Débogage",badge:4,
+  ecebac_url:"https://ecebac.fr/sujet/4270",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDQvY3VsdHVyZS5weQ==",
+  statement:`<strong>Contexte :</strong> Des chercheurs étudient la croissance de plantes en serre. Chaque plante est un objet <code>Plante</code> avec les attributs : <code>nom</code>, <code>espece</code>, <code>croissance</code> (durée moy en jours), <code>taille</code>, <code>exposition</code>.<br><br>
+Les mesures journalières sont des dictionnaires avec : <code>plante</code>, <code>jour</code>, <code>hauteur</code>, <code>temperature</code>, <code>humidite</code>.<br><br>
+<strong>Problème classique :</strong> Modification d'une liste en cours de parcours avec <code>for item in liste</code> → éléments sautés !`,
+  questions:[
+    {id:"4-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Écrire la fonction <code>croissance_moyenne(plantes)</code> qui prend une liste d'instances <code>Plante</code> et renvoie la moyenne des durées de croissance. Renvoyer <code>None</code> si la liste est vide.<br><br>Écrire au moins 2 tests dont un cas de liste vide.`,
+     hint:"Vérifier if len(plantes) == 0 ou if plantes == [], sinon sommer plante.croissance pour chaque plante.",
+     starter:`def croissance_moyenne(plantes):
+    '''Renvoie la durée de croissance moyenne, ou None si liste vide'''
+    if len(plantes) == 0:
+        return None
+    s = 0
+    for plante in plantes:
+        s += ...  # À compléter : accéder à l'attribut croissance
+    return s / len(plantes)
+
+# Tests :
+assert croissance_moyenne([]) == None
+# assert croissance_moyenne(plantes) == ...  # valeur à vérifier`,
+     answer_keywords:["plante.croissance","len(plantes)","None","return s","/ len","== None"],
+     correction:`def croissance_moyenne(plantes):
+    '''Renvoie la durée de croissance moyenne, ou None si liste vide'''
+    if len(plantes) == 0:
+        return None
+    s = 0
+    for plante in plantes:
+        s += plante.croissance
+    return s / len(plantes)
+
+# Tests :
+assert croissance_moyenne([]) == None
+assert croissance_moyenne(plantes) == 79.0`
+    },
+    {id:"4-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <code>dictionnaire_mesure(plantes, mesures)</code> qui renvoie un dictionnaire où chaque clé est le nom d'une plante, et la valeur est la liste de ses mesures. Si une plante n'a aucune mesure, sa liste doit être <code>[]</code>.<br><br>Exemple de retour :<br><code>{"Fougère": [], "Tomate": [{...mesure1...}, {...}]}</code>`,
+     hint:"Parcourir d'abord les mesures, puis parcourir les plantes pour ajouter celles sans mesures.",
+     starter:`def dictionnaire_mesure(plantes, mesures):
+    '''Renvoie un dict {nom_plante: [liste_mesures]}'''
+    d = {}
+    for m in mesures:
+        nom = m['plante']
+        if nom in d:
+            d[nom].append(m)
+        else:
+            d[nom] = [m]
+    # Ajouter les plantes sans mesure
+    for p in plantes:
+        if p.nom not in d:
+            d[p.nom] = ...  # À compléter
+    return d`,
+     answer_keywords:["m['plante']","d[","append","p.nom","[]","return d","not in d"],
+     correction:`def dictionnaire_mesure(plantes, mesures):
+    '''Renvoie un dict {nom_plante: [liste_mesures]}'''
+    d = {}
+    for m in mesures:
+        nom = m['plante']
+        if nom in d:
+            d[nom].append(m)
+        else:
+            d[nom] = [m]
+    for p in plantes:
+        if p.nom not in d:
+            d[p.nom] = []
+    return d
+
+# Test :
+assert dictionnaire_mesure(plantes, mesures)['Fougère'] == []`
+    },
+    {id:"4-3",num:3,type:"text",
+     text:`<strong>Question 3 :</strong> La fonction <code>purger_mesures_extremes(liste_mesures)</code> est censée supprimer les mesures dont la température est <strong>hors de [20°C, 25°C]</strong>. Mais certains relevés extrêmes restent dans la liste après exécution.<br><br>Exécuter <code>test_purger</code> et analyser le code. Identifier la source de l'erreur logique.`,
+     hint:"Que se passe-t-il quand on appelle remove() sur une liste qu'on est en train de parcourir avec for ?",
+     starter:`# Exécuter test_purger() et observer :
+# Certaines mesures à température extrême restent dans la liste
+
+# Explication du bug :
+# La méthode remove() est appelée sur la liste pendant le parcours for...
+# Cela crée un décalage des indices : certains éléments sont sautés !
+
+# Exemple pour illustrer :
+lst = [28, 12, 19, 22, 30]  # températures
+for t in lst:
+    if t < 20 or t > 25:
+        lst.remove(t)
+print(lst)  # Que contient lst ? Pas ce qu'on attend !`,
+     answer_keywords:["remove","boucle","parcours","décalage","modifie","suppression","sauté","for"],
+     correction:`Bug : la méthode remove() modifie la liste pendant qu'on la parcourt avec "for mesure in liste_mesures". Quand on supprime un élément, les suivants se décalent → certains sont sautés.
+
+Démonstration :
+lst = [28, 12, 19, 22, 30]
+for t in lst:
+    if t < 20 or t > 25:
+        lst.remove(t)
+# Résultat : [12, 22] au lieu de [22]
+# Le 19 a été sauté après suppression du 28 !`
+    },
+    {id:"4-4",num:4,type:"code",
+     text:`<strong>Question 4 :</strong> Proposer une version corrigée de <code>purger_mesures_extremes(liste_mesures)</code> qui supprime correctement toutes les mesures dont la température est hors de [20°C, 25°C] inclus.`,
+     hint:"Parcourir une copie de la liste avec .copy(), ou construire une nouvelle liste par compréhension.",
+     starter:`def purger_mesures_extremes(liste_mesures):
+    '''Supprime les mesures hors de [20°C, 25°C]'''
+    # Méthode 1 : parcourir une copie
+    copy_liste = liste_mesures.copy()
+    for mesure in copy_liste:
+        if mesure['temperature'] < 20 or mesure['temperature'] > 25:
+            liste_mesures.remove(mesure)
+    return liste_mesures
+
+# Méthode 2 (plus Pythonique) :
+def purger_mesures_extremes_v2(liste_mesures):
+    return [m for m in liste_mesures if 20 <= m['temperature'] <= 25]`,
+     answer_keywords:["copy()","copie","for mesure in","< 20","or","20 <=","<= 25","remove","return"],
+     correction:`def purger_mesures_extremes(liste_mesures):
+    '''Supprime les mesures hors de [20°C, 25°C]'''
+    copy_liste = liste_mesures.copy()
+    for mesure in copy_liste:
+        if mesure['temperature'] < 20 or mesure['temperature'] > 25:
+            liste_mesures.remove(mesure)
+    return liste_mesures
+
+# Version compacte (list comprehension) :
+def purger_mesures_extremes_v2(liste_mesures):
+    return [m for m in liste_mesures if 20 <= m['temperature'] <= 25]`
+    }
+  ]
+},
+{
+  id:5,title:"Empreinte carbone (JSON)",theme:"Récursivité • Dictionnaires imbriqués • json",badge:5,
+  ecebac_url:"https://ecebac.fr/sujet/4271",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDUvZW1wcmVpbnRlLnB5",
+  statement:`<strong>Contexte :</strong> L'empreinte carbone d'une personne est stockée dans un fichier JSON. Deux formats :<br>
+• <code>empreinte_ada_agr.json</code> : dictionnaire simple (clé → valeur numérique)<br>
+• <code>empreinte_ada.json</code> : dictionnaire imbriqué (valeurs peuvent être des sous-dicts)<br><br>
+<pre>{"Logement": {"Energie": {"Electricité": 206, "Chauffage": 1500}, "Construction": 650}, "Alimentation": 1500, ...}</pre>
+La fonction <code>est_dictionnaire(val)</code> renvoie True si val est un dict.`,
+  questions:[
+    {id:"5-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Compléter le corps de la fonction <code>total_simple(empreinte)</code> qui prend un nom de fichier JSON (str), le charge avec <code>chargement_json(empreinte)</code> et renvoie la somme de toutes les valeurs du dictionnaire simple.`,
+     hint:"d = chargement_json(empreinte), puis for key in d: total += d[key].",
+     starter:`def total_simple(empreinte):
+    '''Renvoie la somme des valeurs d'un dict simple chargé depuis JSON'''
+    d = chargement_json(empreinte)
+    total = 0
+    for key in d:
+        total += ...  # À compléter
+    return total
+
+def empreinte_totale_ada():
+    print(total_simple('empreinte_ada_agr.json'))`,
+     answer_keywords:["d[key]","total +=","chargement_json","return total","d.values()"],
+     correction:`def total_simple(empreinte):
+    '''Renvoie la somme des valeurs d'un dict simple chargé depuis JSON'''
+    d = chargement_json(empreinte)
+    total = 0
+    for key in d:
+        total += d[key]
+    return total`
+    },
+    {id:"5-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <strong>récursive</strong> <code>total_rec(empreinte)</code> qui calcule la somme de toutes les valeurs numériques dans des dictionnaires éventuellement imbriqués.<br><br>Utiliser <code>est_dictionnaire(val)</code> pour distinguer un sous-dictionnaire d'une valeur numérique.`,
+     hint:"Si la valeur est un dictionnaire, appeler total_rec récursivement. Sinon additionner la valeur.",
+     starter:`def total_rec(empreinte):
+    '''Renvoie la somme récursive de toutes les valeurs numériques'''
+    total = 0
+    for key in empreinte:
+        valeur = empreinte[key]
+        if est_dictionnaire(valeur):
+            total += ...  # appel récursif
+        else:
+            total += ...  # ajouter la valeur
+    return total`,
+     answer_keywords:["total_rec","est_dictionnaire","total +=","for key","return total","empreinte[key]"],
+     correction:`def total_rec(empreinte):
+    '''Renvoie la somme récursive de toutes les valeurs numériques'''
+    total = 0
+    for key in empreinte:
+        valeur = empreinte[key]
+        if est_dictionnaire(valeur):
+            total += total_rec(valeur)
+        else:
+            total += valeur
+    return total`
+    },
+    {id:"5-3",num:3,type:"text",
+     text:`<strong>Question 3 :</strong> La fonction <code>alerte_valeur_aberrante(empreinte, limite)</code> est censée renvoyer <code>True</code> si une valeur dans le dictionnaire (éventuellement imbriqué) dépasse strictement <code>limite</code>.<br><br>Avec une limite de 1000, elle ne détecte pas "Chauffage individuel" = 1500. Expliquer l'erreur et écrire la version corrigée.`,
+     hint:"Le return dans la récursion arrête prématurément le parcours des autres clés. Utiliser une variable booléenne.",
+     starter:`# Erreur : dans la version originale, le return prématuré empêche
+# le parcours complet de toutes les clés du dictionnaire.
+
+def alerte_valeur_aberrante(empreinte, limite):
+    '''Renvoie True si une valeur dépasse strictement limite'''
+    valeur_aberrante = False
+    for categorie, valeur in empreinte.items():
+        if est_dictionnaire(valeur):
+            valeur_aberrante = valeur_aberrante or alerte_valeur_aberrante(valeur, limite)
+        else:
+            if valeur > limite:
+                valeur_aberrante = True
+    return valeur_aberrante`,
+     answer_keywords:["valeur_aberrante","or","return True","parcours","complet","arrête","prématurément"],
+     correction:`Problème : la version originale contient un return prématuré dans la boucle récursive. Dès qu'un appel récursif est fait, la fonction retourne ce résultat sans explorer les autres clés. Ainsi "Chauffage individuel" dans un sous-dict n'est jamais atteint.
+
+Version corrigée :
+def alerte_valeur_aberrante(empreinte, limite):
+    valeur_aberrante = False
+    for categorie, valeur in empreinte.items():
+        if est_dictionnaire(valeur):
+            valeur_aberrante = valeur_aberrante or alerte_valeur_aberrante(valeur, limite)
+        else:
+            if valeur > limite:
+                valeur_aberrante = True
+    return valeur_aberrante`
+    },
+    {id:"5-4",num:4,type:"code",
+     text:`<strong>Question 4 :</strong> Écrire une fonction <code>test_alerte_valeur_aberrante()</code> testant la fonction corrigée avec au moins :<br>• Un dict simple sans valeur aberrante<br>• Un dict simple avec valeur aberrante<br>• Un dict imbriqué avec valeur aberrante dans l'imbrication<br>• Un dict imbriqué sans valeur aberrante`,
+     hint:"Utiliser des dicts avec valeurs connues et limite = 20.",
+     starter:`def test_alerte_valeur_aberrante():
+    # Test 1 : dict simple, pas de valeur aberrante
+    assert alerte_valeur_aberrante({'a': 15, 'b': 12}, 20) == False
+
+    # Test 2 : dict simple, avec valeur aberrante
+    assert alerte_valeur_aberrante({'a': 25, 'b': 12}, 20) == ...
+
+    # Test 3 : dict imbriqué, valeur aberrante dans imbrication
+    assert alerte_valeur_aberrante({'a': {'a1': 25, 'a2': 4}, 'b': 12}, 20) == ...
+
+    # Test 4 : dict imbriqué, pas de valeur aberrante
+    assert alerte_valeur_aberrante({'a': {'a1': 5, 'a2': 4}, 'b': 12}, 20) == ...
+
+    print("Tous les tests OK")`,
+     answer_keywords:["assert alerte_valeur_aberrante","== False","== True","imbriqué","{'a1'"],
+     correction:`def test_alerte_valeur_aberrante():
+    assert alerte_valeur_aberrante({'a': 15, 'b': 12, 'c': 14, 'd': 8}, 20) == False
+    assert alerte_valeur_aberrante({'a': 25, 'b': 12}, 20) == True
+    assert alerte_valeur_aberrante({'a': {'a1': 25, 'a2': 4}, 'b': 12}, 20) == True
+    assert alerte_valeur_aberrante({'a': {'a1': 5, 'a2': 4}, 'b': 12}, 20) == False
+    assert alerte_valeur_aberrante({'a': {'a1': 15, 'a2': 4}, 'b': 22}, 20) == True
+    print("Tous les tests OK")`
+    }
+  ]
+},
+{
+  id:6,title:"Smoothies — alternative au soda",theme:"POO • Listes • Algorithme de proximité",badge:6,
+  ecebac_url:"https://ecebac.fr/sujet/4272",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDYvc21vb3RoaWUucHk=",
+  statement:`<strong>Contexte :</strong> La classe <code>Boutique_smoothie</code> gère des recettes de smoothies. Chaque recette a 3 fruits.<br>
+<table><tr><th>Recette</th><th>Fruits</th></tr>
+<tr><td>Tropical</td><td>Mangue, Ananas, Banane</td></tr>
+<tr><td>Rouge</td><td>Fraise, Framboise, Cerise</td></tr>
+<tr><td>Vert</td><td>Kiwi, Pomme verte, Menthe</td></tr>
+<tr><td>Agrume</td><td>Orange, Citron, Pamplemousse</td></tr>
+<tr><td>Tropical citron</td><td>Mangue, Ananas, Citron</td></tr>
+<tr><td>Soleil couchant</td><td>Mangue, Fraise, Pamplemousse</td></tr></table><br>
+<code>self.liste_fruits_disponibles</code> = liste des fruits du jour.<br>
+<code>self.db_smoothies</code> = dict {nom_recette: [liste_fruits]}.`,
+  questions:[
+    {id:"6-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Écrire la méthode <code>smoothie_possible(self, nom_smoothie)</code> qui renvoie <code>True</code> si tous les fruits du smoothie sont dans <code>self.liste_fruits_disponibles</code>, <code>False</code> sinon.<br><br>Exemple : si fruits dispo = ["Mangue","Pamplemousse","Ananas","Banane"],<br><code>b.smoothie_possible("Tropical")</code> → <code>True</code><br><code>b.smoothie_possible("Soleil couchant")</code> → <code>False</code> (Fraise manque)`,
+     hint:"Parcourir self.db_smoothies[nom_smoothie] et vérifier si chaque fruit est in self.liste_fruits_disponibles.",
+     starter:`def smoothie_possible(self, nom_smoothie):
+    '''Renvoie True si tous les fruits du smoothie sont disponibles'''
+    for fruit in self.db_smoothies[nom_smoothie]:
+        if fruit not in self.liste_fruits_disponibles:
+            return ...  # À compléter
+    return ...  # À compléter`,
+     answer_keywords:["for fruit","db_smoothies","liste_fruits_disponibles","return False","return True","not in"],
+     correction:`def smoothie_possible(self, nom_smoothie):
+    '''Renvoie True si tous les fruits du smoothie sont disponibles'''
+    for fruit in self.db_smoothies[nom_smoothie]:
+        if fruit not in self.liste_fruits_disponibles:
+            return False
+    return True`
+    },
+    {id:"6-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la méthode <code>liste_smoothies_possibles(self)</code> qui renvoie la liste de tous les smoothies réalisables avec les fruits disponibles (utiliser <code>smoothie_possible</code>).`,
+     hint:"Parcourir self.db_smoothies et appeler smoothie_possible pour chaque recette.",
+     starter:`def liste_smoothies_possibles(self):
+    '''Renvoie la liste des noms de smoothies réalisables'''
+    possibles = []
+    for smoothie in self.db_smoothies:
+        if self.smoothie_possible(smoothie):
+            possibles.append(smoothie)
+    return possibles`,
+     answer_keywords:["possibles","for smoothie","smoothie_possible","append","return possibles"],
+     correction:`def liste_smoothies_possibles(self):
+    '''Renvoie la liste des noms de smoothies réalisables'''
+    possibles = []
+    for smoothie in self.db_smoothies:
+        if self.smoothie_possible(smoothie):
+            possibles.append(smoothie)
+    return possibles`
+    },
+    {id:"6-3",num:3,type:"code",
+     text:`<strong>Question 3 :</strong> Compléter <code>test_score_proximite</code> avec des tests pertinents. La méthode <code>score_proximite(self, sm1, sm2)</code> renvoie le nombre de fruits communs entre deux smoothies.<br><br>Tests attendus (avec b = Boutique_smoothie(["Mangue","Pamplemousse","Ananas","Banane","Fraise","Kiwi","Citron","Pomme verte"])) :<br>• Tropical et Rouge → 0 (aucun fruit commun)<br>• Agrume et Tropical citron → 1 (Citron)<br>• Tropical et Tropical citron → 2 (Mangue, Ananas)`,
+     hint:"Créer b = Boutique_smoothie(liste_fruits) et appeler b.score_proximite().",
+     starter:`def test_score_proximite():
+    b = Boutique_smoothie(["Mangue","Pamplemousse","Ananas","Banane","Fraise","Kiwi","Citron","Pomme verte"])
+    assert b.score_proximite('Tropical', 'Rouge') == 0
+    assert b.score_proximite('Agrume', 'Tropical citron') == ...   # À compléter
+    assert b.score_proximite('Tropical', 'Tropical citron') == ...  # À compléter
+    assert boutique.score_proximite('Tropical', 'Tropical') == ...  # À compléter
+    print("Tests OK")`,
+     answer_keywords:["== 0","== 1","== 2","== 3","score_proximite","Boutique_smoothie","assert"],
+     correction:`def test_score_proximite():
+    b = Boutique_smoothie(["Mangue","Pamplemousse","Ananas","Banane","Fraise","Kiwi","Citron","Pomme verte"])
+    assert b.score_proximite('Tropical', 'Rouge') == 0           # 0 fruit commun
+    assert b.score_proximite('Agrume', 'Tropical citron') == 1   # Citron
+    assert b.score_proximite('Tropical', 'Tropical citron') == 2 # Mangue + Ananas
+    assert boutique.score_proximite('Tropical', 'Tropical') == 3 # identique → 3
+    print("Tests OK")`
+    },
+    {id:"6-4",num:4,type:"text",
+     text:`<strong>Question 4 :</strong> La méthode <code>plus_proche_possible(self, nom_smoothie_ref)</code> est censée renvoyer le smoothie possible le plus proche du smoothie de référence (en termes de fruits communs).<br><br>Observer avec <code>test_plus_proche_possible</code> que le smoothie renvoyé est le smoothie de référence lui-même ! Identifier le problème et écrire la version corrigée.`,
+     hint:"La méthode compare le smoothie avec lui-même (score maximum = 3). Il faut exclure le smoothie de référence.",
+     starter:`# Bug : la méthode ne vérifie pas que le smoothie parcouru
+# est différent du smoothie de référence.
+# Le smoothie de référence a le score maximal avec lui-même !
+
+def plus_proche_possible(self, nom_smoothie_ref):
+    max_communs = 0
+    smoothie_proche = None
+    for nom_smoothie in self.db_smoothies:
+        if nom_smoothie != nom_smoothie_ref and self.smoothie_possible(nom_smoothie):
+            nb = self.score_proximite(nom_smoothie_ref, nom_smoothie)
+            if nb > max_communs:
+                max_communs = nb
+                smoothie_proche = nom_smoothie
+    return smoothie_proche`,
+     answer_keywords:["!= nom_smoothie_ref","différent","référence","même smoothie","nom_smoothie !="],
+     correction:`Bug : la version originale ne filtre pas le smoothie de référence. Comme ce smoothie a 3 fruits communs avec lui-même, il gagne toujours.
+
+Correction :
+def plus_proche_possible(self, nom_smoothie_ref):
+    max_communs = 0
+    smoothie_proche = None
+    for nom_smoothie in self.db_smoothies:
+        # CONDITION AJOUTÉE : exclure le smoothie de référence
+        if nom_smoothie != nom_smoothie_ref and self.smoothie_possible(nom_smoothie):
+            nb = self.score_proximite(nom_smoothie_ref, nom_smoothie)
+            if nb > max_communs:
+                max_communs = nb
+                smoothie_proche = nom_smoothie
+    return smoothie_proche`
+    },
+    {id:"6-5",num:5,type:"code",
+     text:`<strong>Question 5 :</strong> Créer une boutique avec les ingrédients : <em>Mangue, Ananas, Banane, Fraise, Citron, Kiwi, Pomme verte</em> et afficher les smoothies réalisables avec <code>affichage_possibles()</code>.`,
+     hint:"Instancier Boutique_smoothie avec la liste de fruits, puis appeler la méthode.",
+     starter:`boutique = Boutique_smoothie([
+    "Mangue", "Ananas", "Banane", "Fraise",
+    "Citron", "Kiwi", "Pomme verte"
+])
+boutique.affichage_possibles()`,
+     answer_keywords:["Boutique_smoothie","Mangue","Ananas","affichage_possibles","boutique"],
+     correction:`boutique = Boutique_smoothie([
+    "Mangue", "Ananas", "Banane", "Fraise",
+    "Citron", "Kiwi", "Pomme verte"
+])
+boutique.affichage_possibles()
+# Devrait afficher : Tropical, Tropical citron, Vert citron, Rouge kiwi, Vert`
+    }
+  ]
+},
+{
+  id:7,title:"Coccinelles & régulation",theme:"POO • Simulation • Classes • random",badge:7,
+  ecebac_url:"https://ecebac.fr/sujet/4273",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDcvY29jY2luZWxsZXMucHk=",
+  statement:`<strong>Contexte :</strong> Simulation d'un écosystème coccinelles/pucerons. La classe <code>Coccinelle</code> a les attributs :<br>
+• <code>age</code> : âge en jours<br>• <code>esperance_de_vie</code> : durée de vie max<br>• <code>sexe</code> : "male" ou "femelle"<br>• <code>niv_nutrition</code> : jours consécutifs bien nourris<br><br>
+La fonction <code>evolution(cocci, nb_proies)</code> simule une journée et renvoie <code>(cocci, nb_proies)</code>.`,
+  questions:[
+    {id:"7-1",num:1,type:"code",
+     text:`<strong>Question 1 :</strong> Créer une population de 3 coccinelles (2 femelles, 1 mâle, âge=10, nutrition=2). Fixer <code>proies = 200</code>. Simuler 5 jours avec <code>evolution</code> et afficher le nombre de coccinelles et de proies à chaque jour.`,
+     hint:"Utiliser une boucle for k in range(5) et appeler evolution à chaque itération.",
+     starter:`from coccinelles import Coccinelle, evolution
+
+c1 = Coccinelle('femelle', 10, 2)
+c2 = Coccinelle('femelle', 10, 2)
+c3 = Coccinelle('male', 10, 2)
+cocci = [c1, c2, c3]
+proies = 200
+
+for k in range(5):
+    cocci, proies = evolution(cocci, proies)
+    print(f'Jour {k+1} : {len(cocci)} coccinelles, {proies} pucerons')`,
+     answer_keywords:["Coccinelle","femelle","male","evolution","range(5)","len(cocci)","proies"],
+     correction:`from coccinelles import Coccinelle, evolution
+
+c1 = Coccinelle('femelle', 10, 2)
+c2 = Coccinelle('femelle', 10, 2)
+c3 = Coccinelle('male', 10, 2)
+cocci = [c1, c2, c3]
+proies = 200
+
+for k in range(5):
+    cocci, proies = evolution(cocci, proies)
+    print(f'Jour {k+1} : {len(cocci)} coccinelles, {proies} pucerons')`
+    },
+    {id:"7-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <code>simulation_simple(population, nb_proies)</code> qui simule jusqu'à 30 jours d'évolution et s'arrête si la population atteint 0 ou si les proies atteignent 0. Elle renvoie un tuple <code>(len(population), nb_proies, nb_jours)</code>.`,
+     hint:"Boucle for k in range(30). Après chaque evolution, vérifier if len(population)==0 or nb_proies==0.",
+     starter:`def simulation_simple(population, nb_proies):
+    '''Simule jusqu'à 30 jours, s'arrête si population ou proies = 0'''
+    for k in range(30):
+        population, nb_proies = evolution(population, nb_proies)
+        if len(population) == 0:
+            return (0, nb_proies, k+1)
+        if nb_proies == 0:
+            return (len(population), 0, k+1)
+    return (len(population), nb_proies, 30)`,
+     answer_keywords:["for k in range(30)","evolution","len(population) == 0","nb_proies == 0","return"],
+     correction:`def simulation_simple(population, nb_proies):
+    '''Simule jusqu'à 30 jours, s'arrête si population ou proies = 0'''
+    for k in range(30):
+        population, nb_proies = evolution(population, nb_proies)
+        if len(population) == 0:
+            return (0, nb_proies, k+1)
+        if nb_proies == 0:
+            return (len(population), 0, k+1)
+    return (len(population), nb_proies, 30)`
+    },
+    {id:"7-3",num:3,type:"code",
+     text:`<strong>Question 3 :</strong> Écrire la documentation et les commentaires de la méthode <code>chasser(self, nb_proies, nb_coccinelles)</code>.<br><br>La méthode : calcule <code>proies_par_cocci</code> → choisit la quantité consommée selon un seuil → met à jour <code>self.niv_nutrition</code> → renvoie <code>nb_proies - consomme</code>.`,
+     hint:"Commenter chaque étape : calcul ratio, choix selon seuil (>20, >10, sinon), mise à jour nutrition.",
+     starter:`def chasser(self, nb_proies, nb_coccinelles):
+    """
+    Méthode permettant à la coccinelle de chasser des pucerons.
+    
+    Paramètres :
+        nb_proies (int) : nombre total de pucerons disponibles
+        nb_coccinelles (int) : nombre de coccinelles dans la population
+    
+    Renvoie :
+        int : nombre de proies restantes après la chasse
+    
+    Effets de bord :
+        Met à jour self.niv_nutrition (+1 si >=10 proies mangées, sinon max(0, niv-1))
+    """
+    if nb_coccinelles == 0:
+        return nb_proies
+    # Calcul du nombre de proies disponibles par coccinelle
+    proies_par_cocci = nb_proies / nb_coccinelles
+    # Choix de la quantité consommée selon la disponibilité
+    if proies_par_cocci > 20:
+        consomme = random.randint(12, 20)  # Abondance
+    elif proies_par_cocci > 10:
+        consomme = random.randint(8, 15)   # Suffisant
+    else:
+        consomme = random.randint(3, 8)    # Rareté
+    consomme = min(consomme, nb_proies)
+    # Mise à jour du niveau de nutrition
+    if consomme >= 10:
+        self.niv_nutrition += 1
+    else:
+        self.niv_nutrition = max(0, self.niv_nutrition - 1)
+    return nb_proies - consomme`,
+     answer_keywords:["proies_par_cocci","nb_proies / nb_coccinelles","random.randint","niv_nutrition","min(consomme","return nb_proies"],
+     correction:`def chasser(self, nb_proies, nb_coccinelles):
+    """
+    Méthode permettant à la coccinelle de chasser des pucerons.
+    Paramètres : nb_proies (int), nb_coccinelles (int)
+    Renvoie : nb de proies restantes (int)
+    Effets de bord : met à jour self.niv_nutrition
+    """
+    if nb_coccinelles == 0:
+        return nb_proies
+    proies_par_cocci = nb_proies / nb_coccinelles
+    if proies_par_cocci > 20:
+        consomme = random.randint(12, 20)
+    elif proies_par_cocci > 10:
+        consomme = random.randint(8, 15)
+    else:
+        consomme = random.randint(3, 8)
+    consomme = min(consomme, nb_proies)
+    if consomme >= 10:
+        self.niv_nutrition += 1
+    else:
+        self.niv_nutrition = max(0, self.niv_nutrition - 1)
+    return nb_proies - consomme`
+    },
+    {id:"7-4",num:4,type:"code",
+     text:`<strong>Question 4 :</strong> Modifier les méthodes <code>reproduction</code> et <code>a_survecu</code> pour intégrer :<br>• <strong>Maturité sexuelle</strong> : une femelle ne peut se reproduire qu'à partir de 20 jours de vie<br>• <strong>Impact mortel du manque de nourriture</strong> : si <code>niv_nutrition == 0</code>, probabilité 1/3 de ne pas survivre`,
+     hint:"Dans reproduction : ajouter if self.age >= 20. Dans a_survecu : if niv_nutrition == 0 → random.randint(1,3) == 1 → return False.",
+     starter:`def reproduction(self):
+    '''Crée des descendants si maturité sexuelle et nutrition suffisante'''
+    if self.age < 20:          # NOUVEAU : maturité sexuelle à 20 jours
+        return []
+    descendants = []
+    if self.sexe == 'femelle' and self.niv_nutrition >= 2:
+        descendants.append(Coccinelle('male', 0, 0))
+        descendants.append(Coccinelle('femelle', 0, 0))
+        self.niv_nutrition = 0
+    return descendants
+
+def a_survecu(self):
+    '''Renvoie True si la coccinelle survit à cette journée'''
+    if self.niv_nutrition == 0:   # NOUVEAU : risque de mort si pas nourrie
+        if random.randint(1, 3) == 1:
+            return False          # 1 chance sur 3 de mourir
+    self.age += 1
+    return self.age < self.esperance_de_vie`,
+     answer_keywords:["self.age",">=20",">= 20","femelle","niv_nutrition >= 2","Coccinelle('male'","random.randint(1,3)","return False"],
+     correction:`def reproduction(self):
+    '''Crée des descendants si maturité sexuelle (>=20 jours) et nutrition (>=2)'''
+    if self.age < 20:
+        return []
+    descendants = []
+    if self.sexe == 'femelle' and self.niv_nutrition >= 2:
+        descendants.append(Coccinelle('male', 0, 0))
+        descendants.append(Coccinelle('femelle', 0, 0))
+        self.niv_nutrition = 0
+    return descendants
+
+def a_survecu(self):
+    '''Renvoie True si la coccinelle survit. 1/3 chance de mourir si niv_nutrition==0'''
+    if self.niv_nutrition == 0:
+        if random.randint(1, 3) == 1:
+            return False
+    self.age += 1
+    return self.age < self.esperance_de_vie`
+    }
+  ]
+},
+{
+  id:8,title:"Flottants & addition BCD",theme:"Représentation binaire • Arithmétique • Débogage",badge:8,
+  ecebac_url:"https://ecebac.fr/sujet/4274",
+  python_url:"https://ecebac.fr/dl.php?path=Li9zdWpldHMvMjAyNi9OU0kvMDgvYWRkaXRpb25fQkNELnB5",
+  statement:`<strong>Contexte :</strong> Les nombres flottants IEEE 754 ne représentent pas exactement certains décimaux (ex: 0.1). Cela cause des erreurs de calcul en finance.<br><br>
+Le format <strong>BCD</strong> (Binary Coded Decimal) encode chaque chiffre décimal séparément sur 4 bits :<br>
+• 59.00 → <code>['0101', '1001', '0000', '0000']</code><br>
+• 1.75 → <code>['0001', '0111', '0101']</code><br><br>
+Convention : les 2 derniers quartets = décimales. <code>int(s, 2)</code> convertit un binaire en entier.`,
+  questions:[
+    {id:"8-1",num:1,type:"mc",
+     text:`<strong>Question 1 :</strong> 1000 restaurants × 500 menus × (2.27 + 5.19 + 1.81)€ = 4 635 000€ théorique. Que produit la fonction <code>calcul_recettes()</code> utilisant des flottants Python ?`,
+     hint:"Testez en Python : 2.27 + 5.19 + 1.81 — regardez le résultat exact.",
+     options:["Exactement 4 635 000.0","4 634 999.999986… (légèrement inférieur)","4 635 001.0 (légèrement supérieur)","0.0 (erreur d'addition)"],
+     correct_idx:1,
+     correction:`Résultat : 4634999.999986519 (environ 4 634 999.9999)\n\nCause : 2.27, 5.19 et 1.81 ne peuvent pas être représentés exactement en base 2 (IEEE 754). Les erreurs d'arrondi infinitésimales s'accumulent sur 500 000 additions et produisent un résultat légèrement différent de la valeur exacte théorique.\n\nC'est exactement pour éviter ce problème que le format BCD a été inventé.`
+    },
+    {id:"8-2",num:2,type:"code",
+     text:`<strong>Question 2 :</strong> Écrire la fonction <code>convertir_BCD_vers_decimal(liste_quartets)</code> qui prend une liste de quartets BCD et renvoie la valeur décimale.<br><br>Convention : les 2 derniers quartets = centièmes.<br>Test : <code>convertir_BCD_vers_decimal(['0001','0011','0101','0110']) == 13.56</code>`,
+     hint:"Partie entière = les n-2 premiers quartets. Partie décimale = les 2 derniers. int(s, 2) convertit en entier.",
+     starter:`def convertir_BCD_vers_decimal(liste_quartets):
+    '''Convertit une liste de quartets BCD en nombre décimal'''
+    # Partie entière : tous les quartets sauf les 2 derniers
+    part_entiere = ''
+    for i in range(len(liste_quartets) - 2):
+        part_entiere += str(int(liste_quartets[i], 2))
+    # Partie décimale : les 2 derniers quartets
+    part_decimale = ''
+    for i in range(len(liste_quartets) - 2, len(liste_quartets)):
+        part_decimale += str(int(liste_quartets[i], 2))
+    return int(part_entiere) + int(part_decimale) / 100
+
+assert convertir_BCD_vers_decimal(['0001','0011','0101','0110']) == 13.56`,
+     answer_keywords:["int(","2)","part_entiere","part_decimale","100","/ 10","len(","return"],
+     correction:`def convertir_BCD_vers_decimal(liste_quartets):
+    part_entiere = ''
+    for i in range(len(liste_quartets) - 2):
+        part_entiere += str(int(liste_quartets[i], 2))
+    part_decimale = ''
+    for i in range(len(liste_quartets) - 2, len(liste_quartets)):
+        part_decimale += str(int(liste_quartets[i], 2))
+    return int(part_entiere) + int(part_decimale) / 100
+
+assert convertir_BCD_vers_decimal(['0001','0011','0101','0110']) == 13.56`
+    },
+    {id:"8-3",num:3,type:"text",
+     text:`<strong>Question 3 :</strong> La fonction <code>additionner_nombres_format_BCD('27', '35')</code> devrait donner 62, mais le résultat est incorrect. Il manque l'appel à <code>corriger_BCD</code> après l'addition binaire.<br><br>Identifier l'endroit où insérer l'appel manquant dans la boucle de la fonction.`,
+     hint:"Après l'appel additionner_binaire_quartets(q1, q2, retenue), il faut appeler corriger_BCD(somme, retenue).",
+     starter:`# Dans additionner_nombres_format_BCD, la boucle ressemble à :
+for i in range(longueur_max):
+    index = longueur_max - i - 1
+    somme, retenue = additionner_binaire_quartets(
+        liste_quartets1[index], liste_quartets2[index], retenue
+    )
+    # ← LIGNE MANQUANTE ICI :
+    somme, retenue = corriger_BCD(somme, retenue)  # Correction BCD !
+    resultat.insert(0, somme)`,
+     answer_keywords:["corriger_BCD","retenue","somme, retenue =","somme =","correction"],
+     correction:`La ligne manquante est : somme, retenue = corriger_BCD(somme, retenue)
+
+Elle doit être insérée APRÈS additionner_binaire_quartets et AVANT resultat.insert(0, somme).
+
+Pourquoi : l'addition binaire peut donner un résultat > 9 (ex: 7+5=12, soit 1100 en binaire). Pour un chiffre BCD valide (0-9), il faut ajouter 6 (0110) et propager la retenue. C'est ce que fait corriger_BCD.
+
+Avec la correction, additionner_nombres_format_BCD('27', '35') renvoie ['0110', '0010'] = 62. ✓`
+    },
+    {id:"8-4",num:4,type:"code",
+     text:`<strong>Question 4 :</strong> Tester <code>additionner_nombres_format_BCD('23', '4')</code> — les deux listes n'ont pas la même longueur. Modifier <code>aligner_quartets(q1, q2)</code> pour compléter la liste la plus courte avec des <code>'0000'</code> à gauche.`,
+     hint:"Utiliser une boucle while len(q1) != len(q2): et insérer '0000' à l'index 0 de la liste la plus courte.",
+     starter:`def aligner_quartets(q1, q2):
+    '''Aligne deux listes de quartets en complétant avec '0000' à gauche'''
+    while len(q1) < len(q2):
+        q1.insert(0, '0000')
+    while len(q2) < len(q1):
+        q2.insert(0, '0000')
+    return q1, q2
+
+# Test :
+q1, q2 = aligner_quartets(['0010', '0011'], ['0100'])  # 23 et 4
+print(q1, q2)  # ['0010', '0011'] ['0000', '0100'] → OK`,
+     answer_keywords:["len(q1)","len(q2)","insert(0","'0000'","while","return q1, q2"],
+     correction:`def aligner_quartets(q1, q2):
+    '''Aligne deux listes de quartets en complétant avec '0000' à gauche'''
+    while len(q1) < len(q2):
+        q1.insert(0, '0000')
+    while len(q2) < len(q1):
+        q2.insert(0, '0000')
+    return q1, q2
+
+# Test : additionner_nombres_format_BCD('23', '4')
+# → ['0000','0100'] et ['0010','0011']
+# → 04 + 23 = 27 → ['0010', '0111'] ✓`
+    }
+  ]
+},
+// Sujet 9-23: NOT FINISHED placeholders
+...Array.from({length:15},(_,i)=>({
+  id:i+9,
+  title:["Modélisation 3D OBJ","Consommation d'eau","Prédiction habitat renards","Refuge de renards","Ballon sonde climatique","Évacuation bâtiments","Cabinet vétérinaire (SQL)","Warming Stripes","Handball - budget club","Températures Polynésie","Gestion réservoirs eau","Empreinte numérique CO2","Cartes mémoire Leitner","QR Codes ASCII","Données environnementales"][i],
+  theme:["OBJ 3D • POO • math","Listes • Analyse temporelle","k-NN • Prédiction","POO • CSV","CSV • KML • Météo","POO • Simulation tkinter","SQL • sqlite3","CSV • matplotlib","Dictionnaires • CSV","Statistiques • listes","Dictionnaires • listes","Dictionnaires • listes","POO • dates","Binaire • ASCII","Transmission • parité"][i],
+  badge:i+9,notFinished:true,questions:[],
+  ecebac_url:`https://ecebac.fr/sujet/${4275+i}`
+}))
+];
+
+totalQuestions=SUBJECTS.reduce((a,s)=>a+s.questions.length,0);
+updateProgress();
+
+const state={currentSubject:null,answered:{}};
+let streak=0;
+
+// =====================================================
+// RENDER GRID
+// =====================================================
+function renderGrid(){
+  const grid=document.getElementById('subject-grid');
+  grid.innerHTML='';
+  SUBJECTS.forEach(s=>{
+    const btn=document.createElement('button');
+    btn.className='subj-btn'+(state.currentSubject===s.id?' active':'');
+    const status=document.createElement('div');
+    status.className='subj-status';
+    const answered=s.questions.filter(q=>state.answered[q.id]);
+    if(!s.notFinished&&answered.length===s.questions.length&&s.questions.length>0)status.classList.add('done');
+    else if(answered.length>0)status.classList.add('wip');
+    btn.appendChild(status);
+    btn.innerHTML+=`<span class="subj-num">${s.id}</span><span style="font-size:.65rem;line-height:1.3">${s.title.length>22?s.title.slice(0,22)+'…':s.title}</span>`;
+    btn.addEventListener('click',()=>{playClick();selectSubject(s.id)});
+    grid.appendChild(btn);
+  });
+}
+
+// =====================================================
+// RENDER SUBJECT
+// =====================================================
+function selectSubject(id){
+  state.currentSubject=id;
+  renderGrid();
+  const s=SUBJECTS.find(x=>x.id===id);
+  const el=document.getElementById('subject-content');
+  if(s.notFinished){
+    el.innerHTML=`
+    <div class="subject-card">
+      <div class="card-header">
+        <span class="card-badge tag badge-${id}">Sujet ${id}</span>
+        <div><div class="card-title">${s.title}</div><div class="card-sub">${s.theme}</div>
+        <a href="${s.ecebac_url}" target="_blank" class="card-python-link">🔗 Voir sur ecebac.fr</a></div>
+      </div>
+      <div class="not-finished"><span class="nf-icon">🚧</span><strong>NOT FINISHED</strong><p style="margin-top:8px;font-size:.78rem;color:#bbb">Ce sujet sera disponible prochainement.<br>En attendant : <a href="${s.ecebac_url}" target="_blank" style="color:var(--b)">Consulter sur ecebac.fr</a></p></div>
+    </div>`;
+    el.scrollIntoView({behavior:'smooth',block:'start'});
+    return;
+  }
+  let html=`<div class="subject-card">
+  <div class="card-header">
+    <span class="card-badge tag badge-${id}">Sujet ${id}</span>
+    <div style="flex:1">
+      <div class="card-title">${s.title}</div>
+      <div class="card-sub">${s.theme}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <a href="${s.ecebac_url}" target="_blank" class="card-python-link">🔗 ecebac.fr — Sujet ${id}</a>
+        ${s.python_url?`<a href="${s.python_url}" target="_blank" class="card-python-link" style="color:#88ff99">🐍 Télécharger .py</a>`:''}
+      </div>
+    </div>
+  </div>
+  <div class="subject-statement">
+    <h4>Contexte du sujet</h4>
+    ${s.statement||''}
+  </div>
+  <div class="questions-wrap">`;
+
+  s.questions.forEach((q,qi)=>{
+    const colorClass=`q-num-${(qi%6)+1}`;
+    const isAns=state.answered[q.id];
+    const blockClass=isAns?(isAns.correct?'answered-correct':'answered-wrong'):'';
+    html+=`<div class="question-block ${blockClass}" id="qblock-${q.id}">
+    <div class="q-header">
+      <span class="q-num tag ${colorClass}">Q${q.num}</span>
+      <div class="q-text">${q.text}</div>
+    </div>
+    <div class="code-area-wrap">
+      <div class="code-label">${q.type==='mc'?'Choisir une réponse':q.type==='code'?'Votre code Python':'Votre réponse'}</div>`;
+
+    if(q.type==='mc'){
+      html+=`<div class="mc-wrap" id="mc-${q.id}">`;
+      q.options.forEach((opt,oi)=>{
+        const isSelected=isAns&&isAns.selected_idx===oi;
+        const revealCorrect=isAns&&oi===q.correct_idx;
+        const revealWrong=isAns&&isSelected&&oi!==q.correct_idx;
+        html+=`<div class="mc-option${isSelected?' selected':''}${revealCorrect?' correct-ans':''}${revealWrong?' wrong-ans':''}" onclick="selectMC('${q.id}',${oi},${id})">
+          <div class="mc-radio"></div>
+          <span>${opt}</span>
+        </div>`;
+      });
+      html+=`</div>`;
+    } else {
+      html+=`<textarea class="${q.type==='code'?'code-input':'text-input'}" id="input-${q.id}" placeholder="${q.type==='code'?'# Complétez le code ci-dessous...':'Votre réponse...'}" spellcheck="false">${isAns?isAns.value:(q.starter||'')}</textarea>`;
+    }
+
+    html+=(q.hint?`<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>`:'');
+    html+=`<div class="btn-row">
+      ${q.type!=='mc'?`<button class="btn btn-check" onclick="checkAnswer('${q.id}',${id})">✓ Vérifier</button>`:''}
+      <button class="btn btn-reveal" onclick="revealAnswer('${q.id}',${id})">👁 Correction complète</button>
+      ${q.type!=='mc'?`<button class="btn btn-reset" onclick="resetAnswer('${q.id}',${id})">↺ Effacer</button>`:''}
+    </div>
+    <div class="feedback" id="fb-${q.id}"></div>
+    </div></div>`;
+  });
+
+  html+=`</div></div>`;
+  el.innerHTML=html;
+
+  // Restore feedback for already-answered questions
+  s.questions.forEach(q=>{
+    if(state.answered[q.id]){
+      const fb=document.getElementById(`fb-${q.id}`);
+      const info=state.answered[q.id];
+      if(fb){
+        fb.className='feedback show '+(info.correct?'correct':'wrong');
+        fb.innerHTML=renderFeedbackHTML(q,info.correct,info.value||'');
+      }
+    }
+  });
+
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function escHtml(str){return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+function renderFeedbackHTML(q,correct,userValue){
+  if(correct==='revealed'){
+    return `<div class="feedback-title">📖 Correction officielle</div><pre>${escHtml(q.correction)}</pre>`;
+  }
+  if(correct){
+    return `<div class="feedback-title">✅ Bonne réponse !</div><p style="margin-bottom:8px">Excellent ! Voici la correction complète :</p><pre>${escHtml(q.correction)}</pre>`;
+  }
+  return `<div class="feedback-title">❌ Pas tout à fait…</div><p>Certains éléments essentiels manquent. Complétez votre réponse ou regardez la correction.</p>`;
+}
+
+// =====================================================
+// MULTIPLE CHOICE
+// =====================================================
+function selectMC(qid,optIdx,subjectId){
+  playClick();
+  const subject=SUBJECTS.find(s=>s.id===subjectId);
+  const q=subject.questions.find(q=>q.id===qid);
+  const correct=optIdx===q.correct_idx;
+  const wasAnswered=!!state.answered[qid];
+
+  // Update visual
+  const mc=document.getElementById(`mc-${qid}`);
+  const opts=mc.querySelectorAll('.mc-option');
+  opts.forEach((o,i)=>{
+    o.classList.remove('selected','correct-ans','wrong-ans');
+    if(i===optIdx)o.classList.add('selected');
+    if(i===q.correct_idx&&!correct)o.classList.add('correct-ans');
+    if(i===optIdx&&!correct)o.classList.add('wrong-ans');
+  });
+
+  state.answered[qid]={correct,selected_idx:optIdx};
+  if(!wasAnswered)updateScore(correct);
+
+  const fb=document.getElementById(`fb-${qid}`);
+  const block=document.getElementById(`qblock-${qid}`);
+  if(correct){
+    fb.className='feedback show correct';
+    fb.innerHTML=renderFeedbackHTML(q,true,'');
+    block.className='question-block answered-correct';
+    playSuccess();streak++;
+    const rect=mc.getBoundingClientRect();
+    launchConfetti(rect.left+rect.width/2,rect.top);
+    setTimeout(()=>showStreak(`Bonne réponse ! 🎯`,'✅'),200);
+  } else {
+    fb.className='feedback show wrong';
+    fb.innerHTML=renderFeedbackHTML(q,false,'');
+    block.className='question-block answered-wrong';
+    playFail();streak=0;
+    showStreak('Mauvaise réponse — regarde la correction !','❌');
+  }
+}
+
+// =====================================================
+// HINT
+// =====================================================
+function toggleHint(qid){const h=document.getElementById(`hint-${qid}`);h.classList.toggle('show');playClick()}
+
+// =====================================================
+// CHECK ANSWER (text/code)
+// =====================================================
+function checkAnswer(qid,subjectId){
+  playClick();
+  const subject=SUBJECTS.find(s=>s.id===subjectId);
+  const q=subject.questions.find(q=>q.id===qid);
+  const input=document.getElementById(`input-${qid}`);
+  const userVal=input?input.value.trim():'';
+  const fb=document.getElementById(`fb-${qid}`);
+  const block=document.getElementById(`qblock-${qid}`);
+  if(!userVal){
+    fb.className='feedback show wrong';
+    fb.innerHTML='<div class="feedback-title">⚠️ Réponse vide</div><p>Écrivez quelque chose avant de vérifier !</p>';
+    return;
+  }
+  const userLower=userVal.toLowerCase();
+  const correct=q.answer_keywords&&q.answer_keywords.some(kw=>userLower.includes(kw.toLowerCase()));
+  const wasAnswered=!!state.answered[qid];
+  state.answered[qid]={correct,value:userVal};
+  if(!wasAnswered)updateScore(correct);
+  if(correct){
+    fb.className='feedback show correct';
+    fb.innerHTML=renderFeedbackHTML(q,true,userVal);
+    block.className='question-block answered-correct';
+    playSuccess();streak++;
+    const rect=input.getBoundingClientRect();
+    launchConfetti(rect.left+rect.width/2,rect.top);
+    const msgs=['Parfait ! 🎯','Excellent ! 💪','Bravo ! 🔥','Super ! ⭐','Parfait 🚀'];
+    setTimeout(()=>showStreak(msgs[Math.min(streak-1,msgs.length-1)],'🎉'),200);
+  } else {
+    fb.className='feedback show wrong';
+    fb.innerHTML=renderFeedbackHTML(q,false,userVal);
+    block.className='question-block answered-wrong';
+    playFail();streak=0;
+    showStreak('Presque… Réessaie !','💪');
+  }
+}
+
+// =====================================================
+// REVEAL
+// =====================================================
+function revealAnswer(qid,subjectId){
+  playReveal();
+  const subject=SUBJECTS.find(s=>s.id===subjectId);
+  const q=subject.questions.find(q=>q.id===qid);
+  const fb=document.getElementById(`fb-${qid}`);
+  fb.className='feedback show reveal';
+  fb.innerHTML=renderFeedbackHTML(q,'revealed','');
+  if(!state.answered[qid]){state.answered[qid]={correct:false,value:''};updateScore(false)}
+}
+
+// =====================================================
+// RESET
+// =====================================================
+function resetAnswer(qid,subjectId){
+  playClick();
+  const input=document.getElementById(`input-${qid}`);
+  const subject=SUBJECTS.find(s=>s.id===subjectId);
+  const q=subject&&subject.questions.find(q=>q.id===qid);
+  if(input&&q)input.value=q.starter||'';
+  const fb=document.getElementById(`fb-${qid}`);
+  if(fb){fb.className='feedback';fb.innerHTML=''}
+  const block=document.getElementById(`qblock-${qid}`);
+  if(block)block.className='question-block';
+}
+
+// =====================================================
+// TAB KEY
+// =====================================================
+document.addEventListener('keydown',function(e){
+  if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
+    e.preventDefault();
+    const ta=document.activeElement,s=ta.selectionStart,en=ta.selectionEnd;
+    ta.value=ta.value.substring(0,s)+'    '+ta.value.substring(en);
+    ta.selectionStart=ta.selectionEnd=s+4;
+  }
+});
+
+// =====================================================
+// INIT
+// =====================================================
+renderGrid();
+setTimeout(()=>{
+  const b=document.getElementById('streak-banner');
+  b.textContent='🚀 Bonne révision NSI 2026 !';
+  b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'),2800);
+},600);
+</script>
+</body>
+</html>
