@@ -9,12 +9,50 @@
 :root{--bg:#000000;--bg2:#111;--text:#ffffff;--text2:#ccc;--border:#333;--r:#ff2244;--o:#ff8800;--y:#ffe000;--g:#00dd66;--b:#0088ff;--i:#6600ff;--v:#cc00ff;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+/* Light theme */
+body.light{--bg:#ffffff;--bg2:#f5f5f5;--text:#000000;--text2:#333;--border:#ddd;--r:#d91a3c;--o:#e67a00;--y:#c9b000;--g:#00a84f;--b:#006ecc;--i:#5500dd;--v:#a600cc}
+body.light header{background:#fff;border-bottom:1px solid var(--border)}
+body.light .pdf-banner{background:linear-gradient(135deg,#fafafa 0%,#f0f0fa 100%);border:2px solid #e0e0ea}
+body.light .pdf-title{color:#000}
+body.light .subject-card{background:#fafafa;border:2px solid var(--border)}
+body.light .subject-statement{background:#f5f5f5;border:1px solid #e0e0e0;color:#222}
+body.light .subject-statement h4{color:#555}
+body.light .subject-statement h4::after{background:#ccc}
+body.light .subject-statement pre{background:#0a0a0a;color:#00ff88}
+body.light .subject-statement th{background:#eee;color:#000}
+body.light .subject-statement td{color:#222}
+body.light .q-header{background:#f0f0f0}
+body.light .q-text{color:#000}
+body.light .q-text code{background:#eee;color:#003388}
+body.light .question-block{background:#fafafa;border:2px solid var(--border)}
+body.light textarea.code-input{background:#0a0a0a;color:#e0e0e0;border:2px solid #ccc}
+body.light textarea.text-input{background:#fff;color:#000;border:2px solid #ccc}
+body.light .mc-option{border:2px solid #ccc;color:#000}
+body.light .mc-option:hover{border-color:#888;background:#f0f0f0}
+body.light .mc-option.selected{border-color:var(--b);background:#e8f2ff}
+body.light .mc-option.correct-ans{border-color:var(--g);background:#e8fff0}
+body.light .mc-option.wrong-ans{border-color:var(--r);background:#ffe8ec}
+body.light .feedback.correct{background:#e8fff0;border:2px solid var(--g);color:#0a5030}
+body.light .feedback.wrong{background:#ffe8ec;border:2px solid var(--r);color:#701020}
+body.light .feedback.reveal{background:#f0e8ff;border:2px solid var(--i);color:#4a1080}
+body.light .feedback pre{background:#0a0a0a;color:#00ff88}
+body.light .hint-box{background:#fff8e0;border:1px solid #cc9900;color:#664400}
+body.light .btn-check{background:#000;color:#fff;border-color:#000}
+body.light .btn-check:hover{background:#333}
+body.light .card-title{color:#000}
+body.light .score-pill{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v)) border-box;color:#000}
+body.light .subj-btn{background:#f5f5f5;color:#333;border-color:#ccc}
+body.light .subj-btn:hover{border-color:#888}
 .rainbow-bar{height:5px;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:200% 100%;animation:rainbow-slide 3s linear infinite}
 @keyframes rainbow-slide{0%{background-position:0% 0%}100%{background-position:200% 0%}}
 header{background:#000;border-bottom:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 24px rgba(0,0,0,.4)}
 .header-title{font-family:var(--mono);font-weight:800;font-size:1.3rem;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:300% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:rainbow-slide 4s linear infinite}
 .header-sub{font-size:.75rem;color:#888;margin-top:2px;font-family:var(--mono)}
+body.light .header-sub{color:#666}
+.header-right{display:flex;align-items:center;gap:10px}
+.theme-toggle{width:36px;height:36px;border-radius:50%;border:2px solid var(--border);background:var(--bg2);color:var(--text);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.theme-toggle:hover{transform:rotate(20deg) scale(1.08);border-color:var(--y)}
 .score-pill{font-family:var(--mono);font-size:.85rem;padding:6px 16px;border-radius:999px;border:2px solid transparent;background:linear-gradient(#000,#000) padding-box,linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v)) border-box;font-weight:700;color:var(--text)}
 .main-wrap{max-width:1200px;margin:0 auto;padding:32px 24px 80px}
 .pdf-banner{background:linear-gradient(135deg,#0a0a0a 0%,#0d0d1a 100%);border-radius:16px;padding:24px 28px;margin-bottom:32px;display:flex;align-items:center;gap:20px;border:2px solid #1a1a3a}
@@ -22,12 +60,15 @@ header{background:#000;border-bottom:1px solid var(--border);padding:20px 32px;d
 .pdf-info{flex:1}
 .pdf-title{font-family:var(--mono);font-weight:800;font-size:1.1rem;color:#fff;margin-bottom:6px}
 .pdf-desc{font-size:.82rem;color:#888;font-family:var(--mono);line-height:1.6}
+body.light .pdf-desc{color:#555}
 .pdf-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
 .pdf-link{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:6px 14px;border-radius:6px;text-decoration:none;border:1px solid;transition:all .2s;display:inline-flex;align-items:center;gap:5px}
 .pdf-link.primary{background:var(--b);color:#fff;border-color:var(--b)}
 .pdf-link.primary:hover{background:#0066cc}
 .pdf-link.secondary{background:transparent;color:#888;border-color:#333}
 .pdf-link.secondary:hover{border-color:#888;color:#fff}
+body.light .pdf-link.secondary{color:#555;border-color:#aaa}
+body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .subject-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:36px}
 .subj-btn{background:#111;border:2px solid var(--border);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer;font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--text2);transition:all .2s;position:relative;overflow:hidden;user-select:none}
 .subj-btn:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.4);border-color:#555}
@@ -102,6 +143,7 @@ textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
 .progress-wrap{margin-bottom:28px}
 .progress-label{font-family:var(--mono);font-size:.73rem;color:#666;margin-bottom:6px;display:flex;justify-content:space-between}
 .progress-bar{height:6px;border-radius:999px;background:#1a1a1a;overflow:hidden}
+body.light .progress-bar{background:#eee}
 .progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:200% 100%;animation:rainbow-slide 2s linear infinite;transition:width .5s cubic-bezier(.34,1.56,.64,1)}
 .section-title{font-family:var(--mono);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#555;margin-bottom:12px;display:flex;align-items:center;gap:8px}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -125,7 +167,10 @@ textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
     <div class="header-title">NSI BNS 2026</div>
     <div class="header-sub">Épreuve Pratique — Terminale Générale</div>
   </div>
-  <div class="score-pill" id="score-display">⚡ 0 / 0</div>
+  <div class="header-right">
+    <button class="theme-toggle" id="theme-toggle" title="Changer de thème">🌙</button>
+    <div class="score-pill" id="score-display">⚡ 0 / 0</div>
+  </div>
 </header>
 <div class="main-wrap">
   <div class="pdf-banner">
@@ -180,11 +225,40 @@ let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 
 // =====================================================
-// SCORE
+// SCORE — now persisted, with fix for reset exploit
 // =====================================================
 let totalAnswered=0,totalCorrect=0,totalQuestions=0;
-function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress()}
+function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress();saveState()}
 function updateProgress(){const pct=totalQuestions>0?Math.round(totalAnswered/totalQuestions*100):0;document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('progress-pct').textContent=pct+'%'}
+
+// =====================================================
+// PERSISTENCE
+// =====================================================
+const STORAGE_KEY='nsi_bns_2026_state_v1';
+const THEME_KEY='nsi_bns_2026_theme_v1';
+function saveState(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      answered: state.answered,
+      totalAnswered,
+      totalCorrect,
+      currentSubject: state.currentSubject
+    }));
+  }catch(e){}
+}
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    const data=JSON.parse(raw);
+    if(data && typeof data.answered==='object' && data.answered!==null){
+      state.answered=data.answered;
+    }
+    if(typeof data.totalAnswered==='number') totalAnswered=data.totalAnswered;
+    if(typeof data.totalCorrect==='number') totalCorrect=data.totalCorrect;
+    if(typeof data.currentSubject==='number') state.currentSubject=data.currentSubject;
+  }catch(e){}
+}
 
 // =====================================================
 // KEYWORD-BASED CHECKING (no AI)
@@ -195,8 +269,6 @@ function checkAnswer_local(q, userAnswer) {
   }
   const userLower = userAnswer.toLowerCase().replace(/\s+/g,' ');
   const corrLower = q.correction.toLowerCase().replace(/\s+/g,' ');
-  
-  // Keyword check
   const keywords = q.answer_keywords || [];
   let hits = 0;
   for (const kw of keywords) {
@@ -204,7 +276,6 @@ function checkAnswer_local(q, userAnswer) {
   }
   const threshold = Math.max(1, Math.ceil(keywords.length * 1));
   const correct = hits >= threshold;
-  
   const feedback = correct 
     ? `${hits}/${keywords.length} éléments clés trouvés dans votre réponse. ✅`
     : `Seulement ${hits}/${keywords.length} éléments clés. Vérifiez la correction officielle.`;
@@ -212,7 +283,7 @@ function checkAnswer_local(q, userAnswer) {
 }
 
 // =====================================================
-// SUBJECTS DATA — starters from real .py files
+// SUBJECTS DATA
 // =====================================================
 const SUBJECTS=[
 {
@@ -2044,9 +2115,27 @@ def est_valide(self):
 ];
 
 totalQuestions=SUBJECTS.reduce((a,s)=>a+s.questions.length,0);
-updateProgress();
 const state={currentSubject:null,answered:{}};
 let streak=0;
+
+// =====================================================
+// THEME TOGGLE
+// =====================================================
+function initTheme(){
+  const saved = localStorage.getItem(THEME_KEY);
+  if(saved === 'light'){
+    document.body.classList.add('light');
+    document.getElementById('theme-toggle').textContent = '☀️';
+  }
+}
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const isLight = document.body.classList.contains('light');
+  localStorage.setItem(THEME_KEY, isLight ? 'light' : 'dark');
+  document.getElementById('theme-toggle').textContent = isLight ? '☀️' : '🌙';
+  playClick();
+}
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
 // =====================================================
 // RENDER GRID
@@ -2074,6 +2163,7 @@ function renderGrid(){
 // =====================================================
 function selectSubject(id){
   state.currentSubject=id;
+  saveState();
   renderGrid();
   const s=SUBJECTS.find(x=>x.id===id);
   const el=document.getElementById('subject-content');
@@ -2093,7 +2183,7 @@ function selectSubject(id){
   s.questions.forEach((q,qi)=>{
     const colorClass=`q-num-${(qi%6)+1}`;
     const isAns=state.answered[q.id];
-    const blockClass=isAns?(isAns.correct?'answered-correct':'answered-wrong'):'';
+    const blockClass=isAns?(isAns.correct==='revealed'?'answered-wrong':(isAns.correct?'answered-correct':'answered-wrong')):'';
     html+=`<div class="question-block ${blockClass}" id="qblock-${q.id}">
     <div class="q-header">
       <span class="q-num tag ${colorClass}">Q${q.num}</span>
@@ -2115,7 +2205,7 @@ function selectSubject(id){
       html+=`</div>`;
     } else {
       const starter = q.starter || '';
-      const currentVal = isAns ? isAns.value : starter;
+      const currentVal = isAns && typeof isAns.value==='string' ? isAns.value : starter;
       html+=`<textarea class="${q.type==='code'?'code-input':'text-input'}" id="input-${q.id}" placeholder="${q.type==='code'?'# Complétez le code ci-dessous...':'Votre réponse...'}" spellcheck="false">${escHtml(currentVal)}</textarea>`;
     }
     html+=(q.hint?`<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>`:'');
@@ -2135,7 +2225,9 @@ function selectSubject(id){
       const fb=document.getElementById(`fb-${q.id}`);
       const info=state.answered[q.id];
       if(fb){
-        fb.className='feedback show '+(info.correct?'correct':'wrong');
+        const isRevealed = info.correct === 'revealed';
+        const cls = isRevealed ? 'reveal' : (info.correct ? 'correct' : 'wrong');
+        fb.className='feedback show '+cls;
         fb.innerHTML=renderFeedbackHTML(q,info.correct,info.value||'',info.feedback);
       }
     }
@@ -2160,7 +2252,7 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
 }
 
 // =====================================================
-// MULTIPLE CHOICE
+// MULTIPLE CHOICE — idempotent scoring
 // =====================================================
 function selectMC(qid,optIdx,subjectId){
   playClick();
@@ -2168,6 +2260,18 @@ function selectMC(qid,optIdx,subjectId){
   const q=subject.questions.find(q=>q.id===qid);
   const correct=optIdx===q.correct_idx;
   const wasAnswered=!!state.answered[qid];
+  const prev=state.answered[qid];
+  // Scoring fix: only award once per question. Re-answering the same Q doesn't change score.
+  if(!wasAnswered){
+    updateScore(correct);
+  } else {
+    // If they previously got it wrong and now pick correct, we do NOT retroactively add a point.
+    // This prevents infinite scoring by re-clicking.
+  }
+  state.answered[qid]={correct,selected_idx:optIdx};
+  saveState();
+  const fb=document.getElementById(`fb-${qid}`);
+  const block=document.getElementById(`qblock-${qid}`);
   const mc=document.getElementById(`mc-${qid}`);
   const opts=mc.querySelectorAll('.mc-option');
   opts.forEach((o,i)=>{
@@ -2176,25 +2280,24 @@ function selectMC(qid,optIdx,subjectId){
     if(i===q.correct_idx&&!correct)o.classList.add('correct-ans');
     if(i===optIdx&&!correct)o.classList.add('wrong-ans');
   });
-  state.answered[qid]={correct,selected_idx:optIdx};
-  if(!wasAnswered)updateScore(correct);
-  const fb=document.getElementById(`fb-${qid}`);
-  const block=document.getElementById(`qblock-${qid}`);
   if(correct){
     fb.className='feedback show correct';
     fb.innerHTML=renderFeedbackHTML(q,true,'',null);
     block.className='question-block answered-correct';
-    playSuccess();streak++;
-    const rect=mc.getBoundingClientRect();
-    launchConfetti(rect.left+rect.width/2,rect.top);
-    setTimeout(()=>showStreak('Bonne réponse ! 🎯','✅'),200);
+    if(!wasAnswered || !prev || !prev.correct){ playSuccess(); }
+    if(!wasAnswered){
+      streak++;
+      const rect=mc.getBoundingClientRect();
+      launchConfetti(rect.left+rect.width/2,rect.top);
+      setTimeout(()=>showStreak('Bonne réponse ! 🎯','✅'),200);
+    }
   } else {
     fb.className='feedback show wrong';
     fb.innerHTML=renderFeedbackHTML(q,false,'',null);
     block.className='question-block answered-wrong';
-    playFail();streak=0;
-    showStreak('Regarde la correction !','❌');
+    if(!wasAnswered){ playFail(); streak=0; showStreak('Regarde la correction !','❌'); }
   }
+  renderGrid();
 }
 
 // =====================================================
@@ -2203,7 +2306,7 @@ function selectMC(qid,optIdx,subjectId){
 function toggleHint(qid){const h=document.getElementById(`hint-${qid}`);h.classList.toggle('show');playClick()}
 
 // =====================================================
-// CHECK ANSWER (keyword-based, no AI)
+// CHECK ANSWER — idempotent scoring fix
 // =====================================================
 function checkAnswer(qid,subjectId){
   playClick();
@@ -2221,32 +2324,41 @@ function checkAnswer(qid,subjectId){
   }
 
   const wasAnswered=!!state.answered[qid];
+  const prev=state.answered[qid];
   const result = checkAnswer_local(q, userVal);
   const correct = result.correct;
   
+  // Score only once per question — never again, even after reset
+  if(!wasAnswered){
+    updateScore(correct);
+  }
+  // If it was already answered, no score change, no matter what.
+
   state.answered[qid]={correct,value:userVal,feedback:result.feedback};
-  if(!wasAnswered)updateScore(correct);
+  saveState();
 
   if(correct){
     fb.className='feedback show correct';
     fb.innerHTML=renderFeedbackHTML(q,true,userVal,result.feedback);
     block.className='question-block answered-correct';
-    playSuccess();streak++;
-    const rect=input.getBoundingClientRect();
-    launchConfetti(rect.left+rect.width/2,rect.top);
-    const msgs=['Parfait ! 🎯','Excellent ! 💪','Bravo ! 🔥','Super ! ⭐'];
-    setTimeout(()=>showStreak(msgs[Math.min(streak-1,msgs.length-1)],'🎉'),200);
+    if(!wasAnswered){
+      playSuccess();streak++;
+      const rect=input.getBoundingClientRect();
+      launchConfetti(rect.left+rect.width/2,rect.top);
+      const msgs=['Parfait ! 🎯','Excellent ! 💪','Bravo ! 🔥','Super ! ⭐'];
+      setTimeout(()=>showStreak(msgs[Math.min(streak-1,msgs.length-1)],'🎉'),200);
+    }
   } else {
     fb.className='feedback show wrong';
     fb.innerHTML=renderFeedbackHTML(q,false,userVal,result.feedback);
     block.className='question-block answered-wrong';
-    playFail();streak=0;
-    showStreak('Pas encore… Réessaie ou regarde la correction !','💪');
+    if(!wasAnswered){ playFail(); streak=0; showStreak('Pas encore… Réessaie ou regarde la correction !','💪'); }
   }
+  renderGrid();
 }
 
 // =====================================================
-// REVEAL
+// REVEAL — only counts once
 // =====================================================
 function revealAnswer(qid,subjectId){
   playReveal();
@@ -2255,23 +2367,35 @@ function revealAnswer(qid,subjectId){
   const fb=document.getElementById(`fb-${qid}`);
   fb.className='feedback show reveal';
   fb.innerHTML=renderFeedbackHTML(q,'revealed','',null);
-  if(!state.answered[qid]){state.answered[qid]={correct:false,value:''};updateScore(false)}
+  if(!state.answered[qid]){
+    state.answered[qid]={correct:false,value:''};
+    updateScore(false);
+  }
+  saveState();
+  renderGrid();
 }
 
 // =====================================================
-// RESET
+// RESET — does NOT allow re-scoring. Score stays locked.
 // =====================================================
 function resetAnswer(qid,subjectId){
   playClick();
   const input=document.getElementById(`input-${qid}`);
   const subject=SUBJECTS.find(s=>s.id===subjectId);
   const q=subject&&subject.questions.find(q=>q.id===qid);
+  const wasAnswered = !!state.answered[qid];
   if(input&&q)input.value=q.starter||'';
   const fb=document.getElementById(`fb-${qid}`);
   if(fb){fb.className='feedback';fb.innerHTML=''}
   const block=document.getElementById(`qblock-${qid}`);
   if(block)block.className='question-block';
-  delete state.answered[qid];
+  // Keep the answered record so the score remains counted — prevents infinite scoring exploit.
+  // Mark it as "reset but already scored" so checkAnswer won't add points again.
+  if(wasAnswered){
+    state.answered[qid] = { correct: false, value: '', feedback: '', reset: true, locked: true };
+  }
+  saveState();
+  renderGrid();
 }
 
 // =====================================================
@@ -2287,9 +2411,15 @@ document.addEventListener('keydown',function(e){
 });
 
 // =====================================================
-// INIT
+// INIT — load saved state
 // =====================================================
+loadState();
+initTheme();
+document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;
+updateProgress();
 renderGrid();
+if(state.currentSubject) selectSubject(state.currentSubject);
 </script>
 </body>
 </html>
+
