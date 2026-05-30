@@ -10,7 +10,6 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
-/* Light theme */
 body.light{--bg:#ffffff;--bg2:#f5f5f5;--text:#000000;--text2:#333;--border:#ddd;--r:#d91a3c;--o:#e67a00;--y:#c9b000;--g:#00a84f;--b:#006ecc;--i:#5500dd;--v:#a600cc}
 body.light header{background:#fff;border-bottom:1px solid var(--border)}
 body.light .pdf-banner{background:linear-gradient(135deg,#fafafa 0%,#f0f0fa 100%);border:2px solid #e0e0ea}
@@ -225,7 +224,7 @@ let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 
 // =====================================================
-// SCORE — now persisted, with fix for reset exploit
+// SCORE
 // =====================================================
 let totalAnswered=0,totalCorrect=0,totalQuestions=0;
 function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress();saveState()}
@@ -261,14 +260,13 @@ function loadState(){
 }
 
 // =====================================================
-// KEYWORD-BASED CHECKING (no AI)
+// KEYWORD-BASED CHECKING
 // =====================================================
 function checkAnswer_local(q, userAnswer) {
   if (!userAnswer || userAnswer.trim().length < 5) {
     return { correct: false, feedback: 'Réponse trop courte ou vide.' };
   }
   const userLower = userAnswer.toLowerCase().replace(/\s+/g,' ');
-  const corrLower = q.correction.toLowerCase().replace(/\s+/g,' ');
   const keywords = q.answer_keywords || [];
   let hits = 0;
   for (const kw of keywords) {
@@ -2148,13 +2146,179 @@ function renderGrid(){
     btn.className='subj-btn'+(state.currentSubject===s.id?' active':'');
     const status=document.createElement('div');
     status.className='subj-status';
-    const answered=s.questions.filter(q=>state.answered[q.id]);
+    const answered=s.questions.filter(q=>state.answered[q.id] && !state.answered[q.id].revealedOnly);
     if(answered.length===s.questions.length&&s.questions.length>0)status.classList.add('done');
     else if(answered.length>0)status.classList.add('wip');
     btn.appendChild(status);
     btn.innerHTML+=`<span class="subj-num">${s.id}</span><span style="font-size:.65rem;line-height:1.3">${s.title.length>22?s.title.slice(0,22)+'…':s.title}</span>`;
     btn.addEventListener('click',()=>{playClick();selectSubject(s.id)});
     grid.appendChild(btn);
+  });
+}
+
+// =====================================================
+// CODE EDITOR ENHANCEMENTS (VS Code / Spyder-like)
+// =====================================================
+function setupCodeEditor(ta){
+  if(!ta || ta.tagName!=='TEXTAREA') return;
+  if(ta.dataset.editorSetup === '1') return;
+  ta.dataset.editorSetup = '1';
+
+  ta.addEventListener('keydown', function(e){
+    const s = ta.selectionStart;
+    const en = ta.selectionEnd;
+    const val = ta.value;
+
+    // TAB / SHIFT-TAB: indent / dedent (works for selections too)
+    if(e.key === 'Tab'){
+      e.preventDefault();
+      if(s === en && !e.shiftKey){
+        ta.value = val.substring(0,s) + '    ' + val.substring(en);
+        ta.selectionStart = ta.selectionEnd = s + 4;
+        return;
+      }
+      const lineStart = val.lastIndexOf('\n', s-1) + 1;
+      const lineEnd = val.indexOf('\n', en);
+      const end = lineEnd === -1 ? val.length : lineEnd;
+      const block = val.substring(lineStart, end);
+      const lines = block.split('\n');
+      let newLines, deltaStart=0, deltaEnd=0;
+      if(e.shiftKey){
+        newLines = lines.map((l,i)=>{
+          const m = l.match(/^ {1,4}/);
+          if(m){
+            if(i===0) deltaStart -= m[0].length;
+            deltaEnd -= m[0].length;
+            return l.substring(m[0].length);
+          }
+          return l;
+        });
+      } else {
+        newLines = lines.map(l => '    ' + l);
+        deltaStart = 4;
+        deltaEnd = 4 * lines.length;
+      }
+      const newText = newLines.join('\n');
+      ta.value = val.substring(0,lineStart) + newText + val.substring(end);
+      ta.selectionStart = Math.max(lineStart, s + deltaStart);
+      ta.selectionEnd = end + deltaEnd - (block.length - newText.length);
+      return;
+    }
+
+    // ENTER: auto-indent, extra indent after ':'
+    if(e.key === 'Enter'){
+      const before = val.substring(0, s);
+      const after = val.substring(en);
+      const lineStart = before.lastIndexOf('\n') + 1;
+      const currentLine = before.substring(lineStart);
+      const indentMatch = currentLine.match(/^(\s*)/);
+      const indent = indentMatch ? indentMatch[1] : '';
+      const trimmed = currentLine.replace(/\s+$/, '');
+      let extra = '';
+      if(trimmed.endsWith(':') || trimmed.endsWith('{') || trimmed.endsWith('[') || trimmed.endsWith('(')){
+        extra = '    ';
+      }
+      e.preventDefault();
+      ta.value = before + '\n' + indent + extra + after;
+      ta.selectionStart = ta.selectionEnd = s + 1 + indent.length + extra.length;
+      return;
+    }
+
+    // AUTO-CLOSE pairs
+    const pairs = {'(':')', '[':']', '{':'}', '"':'"', "'":"'", '`':'`'};
+    if(pairs[e.key]){
+      const sel = val.substring(s, en);
+      e.preventDefault();
+      if(s !== en){
+        ta.value = val.substring(0,s) + e.key + sel + pairs[e.key] + val.substring(en);
+        ta.selectionStart = s + 1;
+        ta.selectionEnd = en + 1;
+      } else {
+        ta.value = val.substring(0,s) + e.key + pairs[e.key] + val.substring(en);
+        ta.selectionStart = ta.selectionEnd = s + 1;
+      }
+      return;
+    }
+
+    // SKIP over closing character if already present
+    const closers = [')', ']', '}', '"', "'", '`'];
+    if(closers.includes(e.key) && val[s] === e.key && s === en){
+      e.preventDefault();
+      ta.selectionStart = ta.selectionEnd = s + 1;
+      return;
+    }
+
+    // BACKSPACE: delete matching pair
+    if(e.key === 'Backspace' && s === en && s >= 1){
+      const two = val.substring(s-1, s+1);
+      const pairChars = ['()','[]','{}','""',"''",'``'];
+      if(pairChars.includes(two)){
+        e.preventDefault();
+        ta.value = val.substring(0,s-1) + val.substring(s+1);
+        ta.selectionStart = ta.selectionEnd = s - 1;
+        return;
+      }
+    }
+
+    // Ctrl/Cmd + / : toggle comment
+    if((e.ctrlKey || e.metaKey) && e.key === '/'){
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+      const lineEndIdx = val.indexOf('\n', en);
+      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
+      const block = val.substring(lineStart, lineEnd);
+      const lines = block.split('\n');
+      const allCommented = lines.every(l => l.trim().startsWith('#'));
+      const newLines = lines.map(l => {
+        if(allCommented){
+          return l.replace(/^(\s*)# ?/, '$1');
+        }
+        const m = l.match(/^(\s*)/);
+        const leading = m ? m[1] : '';
+        return leading + '# ' + l.substring(leading.length);
+      });
+      const newText = newLines.join('\n');
+      ta.value = val.substring(0,lineStart) + newText + val.substring(lineEnd);
+      ta.selectionStart = lineStart;
+      ta.selectionEnd = lineStart + newText.length;
+      return;
+    }
+
+    // Ctrl/Cmd + D: duplicate current line
+    if((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')){
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+      const lineEndIdx = val.indexOf('\n', s);
+      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
+      const line = val.substring(lineStart, lineEnd);
+      ta.value = val.substring(0, lineEnd) + '\n' + line + val.substring(lineEnd);
+      ta.selectionStart = ta.selectionEnd = s + line.length + 1;
+      return;
+    }
+
+    // Ctrl/Cmd + Shift + K (or Ctrl+Y style): delete current line
+    if((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && e.shiftKey){
+      e.preventDefault();
+      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+      const lineEndIdx = val.indexOf('\n', s);
+      const lineEnd = lineEndIdx === -1 ? val.length : lineEndIdx;
+      const deleteEnd = lineEndIdx === -1 ? val.length : lineEndIdx + 1;
+      ta.value = val.substring(0, lineStart) + val.substring(deleteEnd);
+      ta.selectionStart = ta.selectionEnd = Math.min(lineStart, ta.value.length);
+      return;
+    }
+
+    // Home: go to first non-whitespace, then to column 0
+    if(e.key === 'Home' && !e.shiftKey && !e.ctrlKey){
+      const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+      const line = val.substring(lineStart, s);
+      const firstNonWs = line.search(/\S/);
+      const target = firstNonWs === -1 ? lineStart : (s === lineStart + firstNonWs ? lineStart : lineStart + firstNonWs);
+      if(target !== s){
+        e.preventDefault();
+        ta.selectionStart = ta.selectionEnd = target;
+      }
+    }
   });
 }
 
@@ -2183,7 +2347,9 @@ function selectSubject(id){
   s.questions.forEach((q,qi)=>{
     const colorClass=`q-num-${(qi%6)+1}`;
     const isAns=state.answered[q.id];
-    const blockClass=isAns?(isAns.correct==='revealed'?'answered-wrong':(isAns.correct?'answered-correct':'answered-wrong')):'';
+    // revealedOnly entries don't count as answered for visual state
+    const effectiveAns = isAns && !isAns.revealedOnly ? isAns : null;
+    const blockClass=effectiveAns?(effectiveAns.correct==='revealed'?'answered-wrong':(effectiveAns.correct?'answered-correct':'answered-wrong')):'';
     html+=`<div class="question-block ${blockClass}" id="qblock-${q.id}">
     <div class="q-header">
       <span class="q-num tag ${colorClass}">Q${q.num}</span>
@@ -2194,9 +2360,9 @@ function selectSubject(id){
     if(q.type==='mc'){
       html+=`<div class="mc-wrap" id="mc-${q.id}">`;
       q.options.forEach((opt,oi)=>{
-        const isSelected=isAns&&isAns.selected_idx===oi;
-        const revealCorrect=isAns&&oi===q.correct_idx;
-        const revealWrong=isAns&&isSelected&&oi!==q.correct_idx;
+        const isSelected=effectiveAns&&effectiveAns.selected_idx===oi;
+        const revealCorrect=effectiveAns&&oi===q.correct_idx;
+        const revealWrong=effectiveAns&&isSelected&&oi!==q.correct_idx;
         html+=`<div class="mc-option${isSelected?' selected':''}${revealCorrect?' correct-ans':''}${revealWrong?' wrong-ans':''}" onclick="selectMC('${q.id}',${oi},${id})">
           <div class="mc-radio"></div>
           <span>${opt}</span>
@@ -2205,7 +2371,7 @@ function selectSubject(id){
       html+=`</div>`;
     } else {
       const starter = q.starter || '';
-      const currentVal = isAns && typeof isAns.value==='string' ? isAns.value : starter;
+      const currentVal = effectiveAns && typeof effectiveAns.value==='string' ? effectiveAns.value : starter;
       html+=`<textarea class="${q.type==='code'?'code-input':'text-input'}" id="input-${q.id}" placeholder="${q.type==='code'?'# Complétez le code ci-dessous...':'Votre réponse...'}" spellcheck="false">${escHtml(currentVal)}</textarea>`;
     }
     html+=(q.hint?`<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>`:'');
@@ -2219,16 +2385,27 @@ function selectSubject(id){
   });
   html+=`</div></div>`;
   el.innerHTML=html;
-  // Restore feedback for already-answered questions
+
+  // Attach code editor enhancements to all textareas
+  el.querySelectorAll('textarea').forEach(setupCodeEditor);
+
+  // Restore feedback for already-answered (non-revealed-only) questions
   s.questions.forEach(q=>{
-    if(state.answered[q.id]){
+    const info = state.answered[q.id];
+    if(info && !info.revealedOnly){
       const fb=document.getElementById(`fb-${q.id}`);
-      const info=state.answered[q.id];
       if(fb){
         const isRevealed = info.correct === 'revealed';
         const cls = isRevealed ? 'reveal' : (info.correct ? 'correct' : 'wrong');
         fb.className='feedback show '+cls;
         fb.innerHTML=renderFeedbackHTML(q,info.correct,info.value||'',info.feedback);
+      }
+    } else if(info && info.revealedOnly){
+      // Show the reveal correction persistently so user can study it
+      const fb=document.getElementById(`fb-${q.id}`);
+      if(fb){
+        fb.className='feedback show reveal';
+        fb.innerHTML=renderFeedbackHTML(q,'revealed','',null);
       }
     }
   });
@@ -2252,21 +2429,18 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
 }
 
 // =====================================================
-// MULTIPLE CHOICE — idempotent scoring
+// MULTIPLE CHOICE
 // =====================================================
 function selectMC(qid,optIdx,subjectId){
   playClick();
   const subject=SUBJECTS.find(s=>s.id===subjectId);
   const q=subject.questions.find(q=>q.id===qid);
   const correct=optIdx===q.correct_idx;
-  const wasAnswered=!!state.answered[qid];
   const prev=state.answered[qid];
-  // Scoring fix: only award once per question. Re-answering the same Q doesn't change score.
-  if(!wasAnswered){
+  // A reveal-only record does NOT block scoring
+  const wasScored = prev && !prev.revealedOnly;
+  if(!wasScored){
     updateScore(correct);
-  } else {
-    // If they previously got it wrong and now pick correct, we do NOT retroactively add a point.
-    // This prevents infinite scoring by re-clicking.
   }
   state.answered[qid]={correct,selected_idx:optIdx};
   saveState();
@@ -2284,8 +2458,8 @@ function selectMC(qid,optIdx,subjectId){
     fb.className='feedback show correct';
     fb.innerHTML=renderFeedbackHTML(q,true,'',null);
     block.className='question-block answered-correct';
-    if(!wasAnswered || !prev || !prev.correct){ playSuccess(); }
-    if(!wasAnswered){
+    if(!wasScored){ playSuccess(); }
+    if(!wasScored){
       streak++;
       const rect=mc.getBoundingClientRect();
       launchConfetti(rect.left+rect.width/2,rect.top);
@@ -2295,7 +2469,7 @@ function selectMC(qid,optIdx,subjectId){
     fb.className='feedback show wrong';
     fb.innerHTML=renderFeedbackHTML(q,false,'',null);
     block.className='question-block answered-wrong';
-    if(!wasAnswered){ playFail(); streak=0; showStreak('Regarde la correction !','❌'); }
+    if(!wasScored){ playFail(); streak=0; showStreak('Regarde la correction !','❌'); }
   }
   renderGrid();
 }
@@ -2306,7 +2480,7 @@ function selectMC(qid,optIdx,subjectId){
 function toggleHint(qid){const h=document.getElementById(`hint-${qid}`);h.classList.toggle('show');playClick()}
 
 // =====================================================
-// CHECK ANSWER — idempotent scoring fix
+// CHECK ANSWER
 // =====================================================
 function checkAnswer(qid,subjectId){
   playClick();
@@ -2323,16 +2497,15 @@ function checkAnswer(qid,subjectId){
     return;
   }
 
-  const wasAnswered=!!state.answered[qid];
   const prev=state.answered[qid];
+  // If already scored (non-revealed-only), don't re-score
+  const wasScored = prev && !prev.revealedOnly;
   const result = checkAnswer_local(q, userVal);
   const correct = result.correct;
   
-  // Score only once per question — never again, even after reset
-  if(!wasAnswered){
+  if(!wasScored){
     updateScore(correct);
   }
-  // If it was already answered, no score change, no matter what.
 
   state.answered[qid]={correct,value:userVal,feedback:result.feedback};
   saveState();
@@ -2341,7 +2514,7 @@ function checkAnswer(qid,subjectId){
     fb.className='feedback show correct';
     fb.innerHTML=renderFeedbackHTML(q,true,userVal,result.feedback);
     block.className='question-block answered-correct';
-    if(!wasAnswered){
+    if(!wasScored){
       playSuccess();streak++;
       const rect=input.getBoundingClientRect();
       launchConfetti(rect.left+rect.width/2,rect.top);
@@ -2352,13 +2525,13 @@ function checkAnswer(qid,subjectId){
     fb.className='feedback show wrong';
     fb.innerHTML=renderFeedbackHTML(q,false,userVal,result.feedback);
     block.className='question-block answered-wrong';
-    if(!wasAnswered){ playFail(); streak=0; showStreak('Pas encore… Réessaie ou regarde la correction !','💪'); }
+    if(!wasScored){ playFail(); streak=0; showStreak('Pas encore… Réessaie ou regarde la correction !','💪'); }
   }
   renderGrid();
 }
 
 // =====================================================
-// REVEAL — only counts once
+// REVEAL — does NOT block getting the question right later
 // =====================================================
 function revealAnswer(qid,subjectId){
   playReveal();
@@ -2367,51 +2540,44 @@ function revealAnswer(qid,subjectId){
   const fb=document.getElementById(`fb-${qid}`);
   fb.className='feedback show reveal';
   fb.innerHTML=renderFeedbackHTML(q,'revealed','',null);
-  if(!state.answered[qid]){
-    state.answered[qid]={correct:false,value:''};
-    updateScore(false);
+  // Mark as "revealed only" — user can still answer and get credit later
+  const prev = state.answered[qid];
+  if(!prev || prev.revealedOnly){
+    state.answered[qid]={correct:'revealed', value:'', revealedOnly:true};
   }
+  // Do NOT call updateScore here. The question remains scorable.
   saveState();
   renderGrid();
 }
 
 // =====================================================
-// RESET — does NOT allow re-scoring. Score stays locked.
+// RESET
 // =====================================================
 function resetAnswer(qid,subjectId){
   playClick();
   const input=document.getElementById(`input-${qid}`);
   const subject=SUBJECTS.find(s=>s.id===subjectId);
   const q=subject&&subject.questions.find(q=>q.id===qid);
-  const wasAnswered = !!state.answered[qid];
+  const prev = state.answered[qid];
+  const wasScored = prev && !prev.revealedOnly;
   if(input&&q)input.value=q.starter||'';
   const fb=document.getElementById(`fb-${qid}`);
   if(fb){fb.className='feedback';fb.innerHTML=''}
   const block=document.getElementById(`qblock-${qid}`);
   if(block)block.className='question-block';
-  // Keep the answered record so the score remains counted — prevents infinite scoring exploit.
-  // Mark it as "reset but already scored" so checkAnswer won't add points again.
-  if(wasAnswered){
-    state.answered[qid] = { correct: false, value: '', feedback: '', reset: true, locked: true };
+  if(wasScored){
+    // Preserve scored state so the user can't re-score for extra points
+    state.answered[qid] = { correct: false, value: '', feedback: '', locked: true };
+  } else {
+    // Was either unrevealed or only revealed — clear entirely
+    delete state.answered[qid];
   }
   saveState();
   renderGrid();
 }
 
 // =====================================================
-// TAB KEY
-// =====================================================
-document.addEventListener('keydown',function(e){
-  if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
-    e.preventDefault();
-    const ta=document.activeElement,s=ta.selectionStart,en=ta.selectionEnd;
-    ta.value=ta.value.substring(0,s)+'    '+ta.value.substring(en);
-    ta.selectionStart=ta.selectionEnd=s+4;
-  }
-});
-
-// =====================================================
-// INIT — load saved state
+// INIT
 // =====================================================
 loadState();
 initTheme();
@@ -2422,4 +2588,3 @@ if(state.currentSubject) selectSubject(state.currentSubject);
 </script>
 </body>
 </html>
-
