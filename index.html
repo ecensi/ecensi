@@ -187,21 +187,24 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
   transition:border-color .2s, box-shadow .2s;
 }
 .code-editor-wrap.focused{border-color:var(--b);box-shadow:0 0 0 3px #0088ff22}
-.code-editor-body{display:flex;min-height:0}
+.code-editor-body{display:flex;min-height:0;overflow:hidden}
 .code-gutter{
   background:#0a0a0a;color:#555;
   padding:12px 6px 12px 10px;
   font-family:var(--mono);font-size:.82rem;line-height:1.6;
   text-align:right;user-select:none;min-width:38px;
   white-space:pre;overflow:hidden;border-right:1px solid #1a1a1a;
+  flex-shrink:0;
 }
-.code-main{flex:1;position:relative;min-width:0}
+.code-main{flex:1;position:relative;min-width:0;overflow:hidden}
 .code-highlight{
-  position:absolute;top:0;left:0;right:0;bottom:0;
+  position:absolute;top:0;left:0;
   margin:0;padding:12px 14px;
   font-family:var(--mono);font-size:.82rem;line-height:1.6;
   white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;
-  pointer-events:none;overflow:hidden;color:#e0e0e0;tab-size:4;
+  pointer-events:none;color:#e0e0e0;tab-size:4;
+  min-width:100%;
+  will-change:transform;
 }
 .code-highlight .hl-kw{color:#cc7aff;font-weight:700}
 .code-highlight .hl-str{color:#a6e22e}
@@ -218,6 +221,7 @@ body.light .code-highlight .hl-bi{color:#0077aa}
 body.light .code-highlight .hl-dec{color:#c41e5c}
 body.light .code-highlight .hl-self{color:#c41e5c}
 textarea.code-input{
+  display:block;
   width:100%;min-height:130px;
   font-family:var(--mono);font-size:.82rem;
   padding:12px 14px;border:none;
@@ -225,6 +229,7 @@ textarea.code-input{
   resize:vertical;outline:none;tab-size:4;line-height:1.6;
   white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;
   position:relative;z-index:2;margin:0;border-radius:0;
+  overflow:auto;
 }
 body.light textarea.code-input{caret-color:#fff}
 textarea.code-input::selection{background:#0088ff55;color:transparent}
@@ -321,12 +326,6 @@ body.light .progress-bar{background:#eee}
   <div id="subject-content"></div>
 </div>
 <script>
-// =====================================================
-// PDF URLs — from ecebac.fr
-// Sujet 1  -> https://ecebac.fr/sujet/4267
-// Sujet 23 -> https://ecebac.fr/sujet/4289
-// Formula: https://ecebac.fr/sujet/${4266 + id}
-// =====================================================
 function pdfUrl(id){
   return `https://ecebac.fr/sujet/${4266 + id}`;
 }
@@ -334,9 +333,6 @@ function pdfUrlFallback(id){
   return `https://glassus.github.io/terminale_nsi/T6_6_Epreuve_pratique/BNS_2026/`;
 }
 
-// =====================================================
-// AUDIO
-// =====================================================
 const AudioCtx=window.AudioContext||window.webkitAudioContext;let actx;
 function getACtx(){if(!actx)actx=new AudioCtx();return actx}
 function playTone(f,t='sine',d=.15,v=.3){try{const c=getACtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=t;o.frequency.setValueAtTime(f,c.currentTime);g.gain.setValueAtTime(v,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+d);o.start(c.currentTime);o.stop(c.currentTime+d)}catch(e){}}
@@ -345,9 +341,6 @@ function playFail(){[200,180].forEach((f,i)=>setTimeout(()=>playTone(f,'sawtooth
 function playClick(){playTone(880,'sine',.05,.08)}
 function playReveal(){[440,523,659].forEach((f,i)=>setTimeout(()=>playTone(f,'triangle',.12,.15),i*70))}
 
-// =====================================================
-// CONFETTI
-// =====================================================
 const canvas=document.getElementById('confetti-canvas');
 const ctx2d=canvas.getContext('2d');
 canvas.width=window.innerWidth;canvas.height=window.innerHeight;
@@ -357,15 +350,9 @@ let confetti=[];
 function launchConfetti(x,y){for(let i=0;i<80;i++){const a=Math.random()*Math.PI*2,s=4+Math.random()*8;confetti.push({x:x||window.innerWidth/2,y:y||window.innerHeight/2,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(Math.random()*5),color:COLORS[Math.floor(Math.random()*COLORS.length)],size:5+Math.random()*7,rot:Math.random()*360,rotS:(Math.random()-.5)*12,grav:.35+Math.random()*.2,life:1,shape:Math.random()>.5?'rect':'circle'})}requestAnimationFrame(animateConf)}
 function animateConf(){ctx2d.clearRect(0,0,canvas.width,canvas.height);confetti=confetti.filter(p=>p.life>.01);confetti.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=p.grav;p.vx*=.99;p.rot+=p.rotS;p.life-=.013;ctx2d.save();ctx2d.globalAlpha=p.life;ctx2d.translate(p.x,p.y);ctx2d.rotate(p.rot*Math.PI/180);ctx2d.fillStyle=p.color;if(p.shape==='rect')ctx2d.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);else{ctx2d.beginPath();ctx2d.arc(0,0,p.size/2,0,Math.PI*2);ctx2d.fill()}ctx2d.restore()});if(confetti.length>0)requestAnimationFrame(animateConf);else ctx2d.clearRect(0,0,canvas.width,canvas.height)}
 
-// =====================================================
-// STREAK
-// =====================================================
 let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 
-// =====================================================
-// SCORE / PROGRESS
-// =====================================================
 let totalQuestions=0;
 function getCompletedCount(){ return Object.keys(state.answered).length; }
 function updateScoreDisplay(){
@@ -379,9 +366,6 @@ function updateProgress(){
   document.getElementById('progress-pct').textContent = pct + '%';
 }
 
-// =====================================================
-// PERSISTENCE
-// =====================================================
 const STORAGE_KEY='nsi_bns_2026_state_v3';
 const THEME_KEY='nsi_bns_2026_theme_v1';
 function saveState(){
@@ -404,9 +388,6 @@ function loadState(){
   }catch(e){}
 }
 
-// =====================================================
-// KEYWORD-BASED CHECKING
-// =====================================================
 function checkAnswer_local(q, userAnswer) {
   if (!userAnswer || userAnswer.trim().length < 5) {
     return { correct: false, feedback: 'Réponse trop courte ou vide.' };
@@ -425,9 +406,6 @@ function checkAnswer_local(q, userAnswer) {
   return { correct, feedback };
 }
 
-// =====================================================
-// PYTHON SYNTAX HIGHLIGHTING
-// =====================================================
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
 const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 
@@ -508,9 +486,6 @@ function highlightPython(code){
   }).join('');
 }
 
-// =====================================================
-// CODE EDITOR ENHANCEMENTS
-// =====================================================
 function setupCodeEditor(textarea, qid){
   const wrap = textarea.closest('.code-editor-wrap');
   if (!wrap) return;
@@ -524,11 +499,10 @@ function setupCodeEditor(textarea, qid){
 
   function syncScroll(){
     if (highlight) {
-      highlight.scrollTop = textarea.scrollTop;
-      highlight.scrollLeft = textarea.scrollLeft;
+      highlight.style.transform = `translate(${-textarea.scrollLeft}px, ${-textarea.scrollTop}px)`;
     }
     if (gutter) {
-      gutter.scrollTop = textarea.scrollTop;
+      gutter.style.transform = `translateY(${-textarea.scrollTop}px)`;
     }
   }
 
@@ -700,6 +674,8 @@ function setupCodeEditor(textarea, qid){
   });
 
   updateAll();
+  // Initial scroll sync in case textarea has initial scroll
+  syncScroll();
 }
 
 function updateLineNumbers(textarea, gutter){
@@ -717,9 +693,6 @@ function updateHighlight(textarea, highlight){
   highlight.innerHTML = highlightPython(textarea.value) + '\n';
 }
 
-// =====================================================
-// SUBJECTS DATA
-// =====================================================
 const SUBJECTS=[
 {
   id:1,title:"Codage RLE d'images",theme:"Compression • PIL",badge:1,
@@ -2712,7 +2685,6 @@ function selectSubject(id){
               fallback.classList.add('show');
             }
           } catch(e) {
-            // Cross-origin: iframe loaded something, assume OK
           }
         }
       }, 4000);
@@ -2882,9 +2854,7 @@ function revealAnswer(qid, subjectId){
   if (!wasAnswered) {
     state.answered[qid] = { correct: 'revealed', value: '', scored: false };
   } else if (prev.correct === true) {
-    // Keep as correct
   } else if (prev.correct === false) {
-    // Keep as wrong but show correction
   }
   
   saveState();
