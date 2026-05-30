@@ -120,12 +120,39 @@ textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
 <canvas id="confetti-canvas"></canvas>
 <div id="streak-banner"></div>
 <div class="rainbow-bar"></div>
+
+<!-- USER ID MODAL -->
+<div id="user-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+  <div style="background:#0a0a0a;border:2px solid var(--b);border-radius:16px;padding:32px;max-width:400px;width:90%;text-align:center;box-shadow:0 0 40px rgba(0,136,255,0.2);">
+    <h2 style="font-family:var(--mono);background:linear-gradient(90deg,var(--b),var(--v));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.5rem;margin-bottom:16px;">👤 Choose Your User ID</h2>
+    <p style="color:#ccc;margin-bottom:24px;font-size:.9rem;line-height:1.6;">Select a unique number from 0 to infinity.<br>Once claimed, it's yours!</p>
+    <input type="number" min="0" id="user-id-input" placeholder="Enter your ID (e.g., 0, 1, 42...)" style="width:100%;padding:14px;border-radius:8px;border:2px solid var(--border);background:#000;color:#fff;font-family:var(--mono);font-size:1rem;margin-bottom:16px;outline:none;">
+    <div id="user-id-error" style="color:var(--r);font-size:.8rem;margin-bottom:12px;display:none;font-family:var(--mono);"></div>
+    <button onclick="submitUserId()" style="width:100%;padding:14px;background:linear-gradient(90deg,var(--b),var(--v));color:#fff;border:none;border-radius:8px;font-family:var(--mono);font-weight:700;font-size:1rem;cursor:pointer;letter-spacing:1px;">CLAIM ID & START</button>
+  </div>
+</div>
+
+<!-- LEADERBOARD MODAL -->
+<div id="lb-modal" style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:10000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
+  <div style="background:#0a0a0a;border:2px solid var(--y);border-radius:16px;padding:32px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 0 40px rgba(255,224,0,0.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-family:var(--mono);background:linear-gradient(90deg,var(--y),var(--o));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-size:1.5rem;margin:0;">🏆 Leaderboard</h2>
+      <button onclick="closeLeaderboard()" style="background:none;border:none;color:#888;font-size:1.5rem;cursor:pointer;padding:0 8px;">&times;</button>
+    </div>
+    <div id="lb-content" style="font-family:var(--mono);font-size:.9rem;color:#ccc;"></div>
+  </div>
+</div>
+
 <header>
   <div>
     <div class="header-title">NSI BNS 2026</div>
     <div class="header-sub">Épreuve Pratique — Terminale Générale</div>
   </div>
-  <div class="score-pill" id="score-display">⚡ 0 / 0</div>
+  <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <button onclick="openLeaderboard()" style="font-family:var(--mono);font-size:.72rem;padding:6px 12px;border-radius:6px;border:2px solid var(--y);background:transparent;color:var(--y);cursor:pointer;font-weight:700;letter-spacing:.5px;">🏆 LEADERBOARD</button>
+    <div class="score-pill" id="user-display" style="background:linear-gradient(#000,#000) padding-box,linear-gradient(90deg,var(--y),var(--o)) border-box;color:var(--y);">👤 User #?</div>
+    <div class="score-pill" id="score-display">⚡ 0 / 0</div>
+  </div>
 </header>
 <div class="main-wrap">
   <div class="pdf-banner">
@@ -141,7 +168,7 @@ textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
   </div>
   <div class="progress-wrap">
     <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fi.pinimg.com%2F736x%2F4a%2Fff%2Fa4%2F4affa4aecd023a36a41b816542b9f210.jpg&f=1&nofb=1&ipt=dc174d12e1d6d144c8bf808702294880724a227f7e034b0950ab1b6c887e8d96" style="display: block; margin: auto; width: 150px; border-radius: 20px;">
-    <div style="display: flex; justify-content: center; align-items: center; margin: 0;"><span style="font-size: 18px;">˗ˏˋ † ‪ˎˊ˗</span></div>
+    <div style="display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;"><span style="font-size: 18px;">˗ˏˋ † ‪ˎˊ˗</span></div>
     <div class="progress-label"><span>Progression globale</span><span id="progress-pct">0%</span></div>
     <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
   </div>
@@ -183,7 +210,7 @@ function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-ba
 // SCORE
 // =====================================================
 let totalAnswered=0,totalCorrect=0,totalQuestions=0;
-function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress()}
+function updateScore(correct){totalAnswered++;if(correct)totalCorrect++;document.getElementById('score-display').textContent=`⚡ ${totalCorrect} / ${totalAnswered}`;updateProgress();updateLeaderboard()}
 function updateProgress(){const pct=totalQuestions>0?Math.round(totalAnswered/totalQuestions*100):0;document.getElementById('progress-fill').style.width=pct+'%';document.getElementById('progress-pct').textContent=pct+'%'}
 
 // =====================================================
@@ -2287,9 +2314,96 @@ document.addEventListener('keydown',function(e){
 });
 
 // =====================================================
+// USER ID & LEADERBOARD SYSTEM
+// =====================================================
+function getUserId() { return localStorage.getItem('nsi_user_id'); }
+function getTakenIds() { return JSON.parse(localStorage.getItem('nsi_taken_ids') || '[]'); }
+function getLeaderboard() { return JSON.parse(localStorage.getItem('nsi_leaderboard') || '[]'); }
+function saveLeaderboard(lb) { localStorage.setItem('nsi_leaderboard', JSON.stringify(lb)); }
+
+function claimUserId(id) {
+  const taken = getTakenIds();
+  if (taken.includes(id)) return false;
+  taken.push(id);
+  localStorage.setItem('nsi_taken_ids', JSON.stringify(taken));
+  localStorage.setItem('nsi_user_id', id);
+  return true;
+}
+
+function updateLeaderboard() {
+  const userId = getUserId();
+  if (userId === null) return;
+  const pct = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  let lb = getLeaderboard();
+  const idx = lb.findIndex(u => u.id == userId);
+  if (idx >= 0) {
+    lb[idx].percentage = pct;
+    lb[idx].correct = totalCorrect;
+    lb[idx].total = totalQuestions;
+  } else {
+    lb.push({ id: userId, percentage: pct, correct: totalCorrect, total: totalQuestions });
+  }
+  lb.sort((a, b) => b.percentage - a.percentage || a.id - b.id);
+  saveLeaderboard(lb);
+}
+
+function submitUserId() {
+  const input = document.getElementById('user-id-input');
+  const error = document.getElementById('user-id-error');
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0) {
+    error.textContent = 'Please enter a valid number (0 or greater).';
+    error.style.display = 'block';
+    return;
+  }
+  if (claimUserId(val)) {
+    document.getElementById('user-modal').style.display = 'none';
+    document.getElementById('user-display').textContent = `👤 User #${val}`;
+    updateLeaderboard();
+  } else {
+    error.textContent = `ID #${val} is already taken! Choose another.`;
+    error.style.display = 'block';
+  }
+}
+
+function openLeaderboard() {
+  const lb = getLeaderboard();
+  const content = document.getElementById('lb-content');
+  if (lb.length === 0) {
+    content.innerHTML = '<p style="text-align:center;color:#666;padding:20px;">No scores yet. Start answering questions!</p>';
+  } else {
+    let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr><th style="padding:10px;border-bottom:2px solid var(--border);text-align:left;color:var(--y);">Rank</th><th style="padding:10px;border-bottom:2px solid var(--border);text-align:left;color:var(--y);">User</th><th style="padding:10px;border-bottom:2px solid var(--border);text-align:right;color:var(--y);">Score</th></tr></thead><tbody>';
+    lb.slice(0, 50).forEach((u, i) => {
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+      const isMe = u.id == getUserId();
+      const rowStyle = isMe ? 'background:#1a1a00;' : '';
+      html += `<tr style="${rowStyle}"><td style="padding:10px;border-bottom:1px solid #222;">${medal}</td><td style="padding:10px;border-bottom:1px solid #222;${isMe?'color:var(--y);font-weight:700;':''}">User #${u.id} ${isMe?'(You)':''}</td><td style="padding:10px;border-bottom:1px solid #222;text-align:right;color:var(--g);font-weight:700;">${u.percentage}% <span style="color:#666;font-size:.75rem;">(${u.correct}/${u.total})</span></td></tr>`;
+    });
+    html += '</tbody></table>';
+    content.innerHTML = html;
+  }
+  document.getElementById('lb-modal').style.display = 'flex';
+}
+
+function closeLeaderboard() {
+  document.getElementById('lb-modal').style.display = 'none';
+}
+
+function initApp() {
+  renderGrid();
+  const userId = getUserId();
+  if (userId !== null) {
+    document.getElementById('user-modal').style.display = 'none';
+    document.getElementById('user-display').textContent = `👤 User #${userId}`;
+  } else {
+    document.getElementById('user-modal').style.display = 'flex';
+  }
+}
+
+// =====================================================
 // INIT
 // =====================================================
-renderGrid();
+initApp();
 </script>
 </body>
 </html>
