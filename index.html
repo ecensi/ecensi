@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NSI 2026 — Épreuve Pratique</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+<script src="https://js.puter.com/v2/"></script>
 <style>
 :root{--bg:#000000;--bg2:#111;--text:#ffffff;--text2:#ccc;--border:#333;--r:#ff2244;--o:#ff8800;--y:#ffe000;--g:#00dd66;--b:#0088ff;--i:#6600ff;--v:#cc00ff;--mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -286,6 +287,38 @@ body.light .progress-bar{background:#eee}
 .tag{font-family:var(--mono);font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
 .q-num-1{background:#ff224422;color:var(--r)}.q-num-2{background:#ff880022;color:var(--o)}.q-num-3{background:#00dd6622;color:var(--g)}.q-num-4{background:#0088ff22;color:var(--b)}.q-num-5{background:#cc00ff22;color:var(--v)}.q-num-6{background:#ff224422;color:var(--r)}
 .badge-1{background:#ff224422;color:var(--r)}.badge-2{background:#ff880022;color:var(--o)}.badge-3{background:#ffe00022;color:#cc9900}.badge-4{background:#00dd6622;color:var(--g)}.badge-5{background:#0088ff22;color:var(--b)}.badge-6{background:#6600ff22;color:var(--i)}.badge-7{background:#cc00ff22;color:var(--v)}.badge-8{background:#ff224422;color:var(--r)}.badge-9{background:#ff880022;color:var(--o)}.badge-10{background:#ffe00022;color:#cc9900}.badge-11{background:#00dd6622;color:var(--g)}.badge-12{background:#0088ff22;color:var(--b)}.badge-13{background:#6600ff22;color:var(--i)}.badge-14{background:#cc00ff22;color:var(--v)}.badge-15{background:#ff224422;color:var(--r)}.badge-16{background:#ff880022;color:var(--o)}.badge-17{background:#ffe00022;color:#cc9900}.badge-18{background:#00dd6622;color:var(--g)}.badge-19{background:#0088ff22;color:var(--b)}.badge-20{background:#6600ff22;color:var(--i)}.badge-21{background:#cc00ff22;color:var(--v)}.badge-22{background:#ff224422;color:var(--r)}.badge-23{background:#ff880022;color:var(--o)}
+
+/* AI grading indicator */
+.ai-grading{
+  display:flex;align-items:center;gap:8px;
+  padding:10px 14px;border-radius:8px;
+  background:linear-gradient(135deg,#0a0020 0%,#1a0a3a 100%);
+  border:2px solid var(--i);
+  color:#ccaaff;font-family:var(--mono);font-size:.82rem;
+  animation:fadeUp .3s ease;
+}
+.ai-grading .ai-spinner{
+  width:14px;height:14px;border-radius:50%;
+  border:2px solid #ccaaff55;border-top-color:var(--v);
+  animation:spin 0.8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ai-grading .ai-dots::after{
+  content:'';
+  animation:dotdot 1.2s steps(4,end) infinite;
+}
+@keyframes dotdot{
+  0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}100%{content:''}
+}
+.ai-badge{
+  display:inline-block;
+  font-family:var(--mono);font-size:.62rem;font-weight:800;
+  padding:1px 6px;border-radius:4px;
+  background:linear-gradient(90deg,var(--i),var(--v));
+  color:#fff;letter-spacing:.5px;margin-left:6px;
+  vertical-align:middle;
+}
+
 @media(max-width:600px){header{padding:14px}.main-wrap{padding:16px 12px 60px}.questions-wrap{padding:14px}.card-header{padding:14px}}
 </style>
 </head>
@@ -388,9 +421,91 @@ function loadState(){
   }catch(e){}
 }
 
-function checkAnswer_local(q, userAnswer) {
+// =====================================================
+// AI GRADING via Puter.js (no API key needed)
+// Returns: { correct: bool, feedback: string, source: 'ai'|'fallback' }
+// =====================================================
+async function gradeAnswerWithAI(q, userAnswer) {
+  // Strip HTML from question text for cleaner prompt
+  const plainQuestion = q.text
+    .replace(/<code>(.*?)<\/code>/g, '`$1`')
+    .replace(/<pre>(.*?)<\/pre>/gs, '\n```\n$1\n```\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<strong>(.*?)<\/strong>/g, '$1')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const prompt = `You are an automatic grader for a French high school computer science exam (NSI Terminale, BNS 2026).
+
+QUESTION (${q.type === 'code' ? 'Python code' : 'written explanation'}):
+${plainQuestion}
+
+EXPECTED CORRECT ANSWER (reference):
+${q.correction}
+
+STUDENT'S ANSWER:
+${userAnswer}
+
+GRADING RULES:
+- Accept any semantically/functionally correct answer, even if different from the reference.
+- For code: accept any implementation that achieves the same behavior (variable names, style can differ).
+- For explanations: accept any answer capturing the key concepts, even if incomplete.
+- Reject clearly wrong, empty, or unrelated answers.
+- Be fair but rigorous.
+
+Respond with EXACTLY ONE WORD: YES if correct, NO if incorrect.
+Do NOT add any explanation, punctuation, or additional text. Just YES or NO.`;
+
+  try {
+    if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
+      throw new Error('Puter AI not available');
+    }
+
+    // Race against timeout (30s)
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('AI grading timeout')), 30000)
+    );
+
+    const aiCall = puter.ai.chat(prompt);
+    const response = await Promise.race([aiCall, timeout]);
+
+    // Response can be string or object with .message.content
+    let text = '';
+    if (typeof response === 'string') {
+      text = response;
+    } else if (response && response.message && response.message.content) {
+      text = response.message.content;
+    } else if (response && response.text) {
+      text = response.text;
+    } else {
+      text = String(response);
+    }
+
+    const upper = text.toUpperCase().trim();
+    // Extract YES or NO from response
+    const isYes = /\bYES\b/.test(upper);
+    const isNo = /\bNO\b/.test(upper);
+
+    if (isYes && !isNo) {
+      return { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
+    } else if (isNo) {
+      return { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
+    } else {
+      // Unclear response, fall back
+      console.warn('AI returned unclear response:', text);
+      return fallbackGrade(q, userAnswer);
+    }
+  } catch (err) {
+    console.warn('AI grading failed, using fallback:', err);
+    return fallbackGrade(q, userAnswer);
+  }
+}
+
+// Fallback: keyword-based (used if AI unavailable)
+function fallbackGrade(q, userAnswer) {
   if (!userAnswer || userAnswer.trim().length < 5) {
-    return { correct: false, feedback: 'Réponse trop courte ou vide.' };
+    return { correct: false, feedback: 'Réponse trop courte ou vide. (Fallback mode)', source: 'fallback' };
   }
   const userLower = userAnswer.toLowerCase().replace(/\s+/g,' ');
   const keywords = q.answer_keywords || [];
@@ -398,14 +513,17 @@ function checkAnswer_local(q, userAnswer) {
   for (const kw of keywords) {
     if (userLower.includes(kw.toLowerCase())) hits++;
   }
-  const threshold = Math.max(1, Math.ceil(keywords.length * 1));
+  const threshold = Math.max(1, Math.ceil(keywords.length * 0.7));
   const correct = hits >= threshold;
-  const feedback = correct 
-    ? `${hits}/${keywords.length} éléments clés trouvés dans votre réponse. ✅`
-    : `Seulement ${hits}/${keywords.length} éléments clés. Vérifiez la correction officielle.`;
-  return { correct, feedback };
+  const feedback = correct
+    ? `[Fallback] ${hits}/${keywords.length} mots-clés trouvés.`
+    : `[Fallback] Seulement ${hits}/${keywords.length} mots-clés.`;
+  return { correct, feedback, source: 'fallback' };
 }
 
+// =====================================================
+// PYTHON SYNTAX HIGHLIGHTING
+// =====================================================
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
 const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 
@@ -674,7 +792,6 @@ function setupCodeEditor(textarea, qid){
   });
 
   updateAll();
-  // Initial scroll sync in case textarea has initial scroll
   syncScroll();
 }
 
@@ -2658,7 +2775,7 @@ function selectSubject(id){
     }
     html += (q.hint ? `<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>` : '');
     html += `<div class="btn-row">
-      ${q.type !== 'mc' ? `<button class="btn btn-check" id="btn-check-${q.id}" onclick="checkAnswer('${q.id}',${id})">✓ Vérifier</button>` : ''}
+      ${q.type !== 'mc' ? `<button class="btn btn-check" id="btn-check-${q.id}" onclick="checkAnswer('${q.id}',${id})">✓ Vérifier <span class="ai-badge">AI</span></button>` : ''}
       <button class="btn btn-reveal" onclick="revealAnswer('${q.id}',${id})">👁 Correction</button>
       ${q.type !== 'mc' ? `<button class="btn btn-reset" onclick="resetAnswer('${q.id}',${id})">↺ Réinitialiser</button>` : ''}
     </div>
@@ -2716,7 +2833,7 @@ function selectSubject(id){
 
 function escHtml(str){
   if (!str) return '';
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g,'&gt;');
 }
 
 function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
@@ -2727,9 +2844,9 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
   }
   const scoreInfo = feedbackMsg ? `<div style="margin-top:8px;padding:8px;background:#111;border-radius:6px;font-size:.82rem;color:#aaa">${feedbackMsg}</div>` : '';
   if (correct) {
-    return `<div class="feedback-title">✅ Bonne réponse !</div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#00dd66;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
+    return `<div class="feedback-title">✅ Bonne réponse ! <span class="ai-badge">AI</span></div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#00dd66;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
   }
-  return `<div class="feedback-title">❌ Pas tout à fait…</div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#ff2244;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
+  return `<div class="feedback-title">❌ Pas tout à fait… <span class="ai-badge">AI</span></div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#ff2244;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
 }
 
 function selectMC(qid, optIdx, subjectId){
@@ -2788,7 +2905,10 @@ function toggleHint(qid){
   playClick();
 }
 
-function checkAnswer(qid, subjectId){
+// =====================================================
+// CHECK ANSWER — Uses Puter AI for input boxes
+// =====================================================
+async function checkAnswer(qid, subjectId){
   playClick();
   const subject = SUBJECTS.find(s => s.id === subjectId);
   const q = subject.questions.find(q => q.id === qid);
@@ -2796,6 +2916,7 @@ function checkAnswer(qid, subjectId){
   const userVal = input ? input.value.trim() : '';
   const fb = document.getElementById(`fb-${qid}`);
   const block = document.getElementById(`qblock-${qid}`);
+  const checkBtn = document.getElementById(`btn-check-${qid}`);
 
   if (!userVal || userVal === (q.starter || '').trim()) {
     fb.className = 'feedback show wrong';
@@ -2803,20 +2924,41 @@ function checkAnswer(qid, subjectId){
     return;
   }
 
+  // Disable button while grading
+  if (checkBtn) {
+    checkBtn.disabled = true;
+    checkBtn.innerHTML = '⏳ Analyse...';
+  }
+
+  // Show grading indicator
+  fb.className = 'feedback show reveal';
+  fb.innerHTML = `<div class="ai-grading">
+    <div class="ai-spinner"></div>
+    <div>🤖 <strong>IA en cours d'analyse</strong><span class="ai-dots"></span></div>
+  </div>`;
+
+  // Call AI
+  const result = await gradeAnswerWithAI(q, userVal);
+  const correct = result.correct;
+
   const wasAnswered = !!state.answered[qid];
   const prev = state.answered[qid];
-  const result = checkAnswer_local(q, userVal);
-  const correct = result.correct;
 
   const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
   const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
   
   if (!wasAnswered || wasRevealedOnly) {
-    state.answered[qid] = { correct, value: userVal, feedback: result.feedback };
+    state.answered[qid] = { correct, value: userVal, feedback: result.feedback, source: result.source };
   } else {
-    state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback };
+    state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback, source: result.source };
   }
   saveState();
+
+  // Re-enable button
+  if (checkBtn) {
+    checkBtn.disabled = false;
+    checkBtn.innerHTML = '✓ Vérifier <span class="ai-badge">AI</span>';
+  }
 
   if (correct) {
     fb.className = 'feedback show correct';
