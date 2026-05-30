@@ -25,8 +25,9 @@ body.light .q-header{background:#f0f0f0}
 body.light .q-text{color:#000}
 body.light .q-text code{background:#eee;color:#003388}
 body.light .question-block{background:#fafafa;border:2px solid var(--border)}
-body.light textarea.code-input{background:#0a0a0a;color:transparent;border:2px solid #ccc}
-body.light textarea.text-input{background:#fff;color:#000;border:2px solid #ccc}
+body.light .code-editor-wrap{background:#0a0a0a;border-color:#ccc}
+body.light .code-gutter{background:#0d0d0d;color:#666;border-right-color:#222}
+body.light .editor-statusbar{background:#0d0d0d;color:#aaa;border-top-color:#222}
 body.light .mc-option{border:2px solid #ccc;color:#000}
 body.light .mc-option:hover{border-color:#888;background:#f0f0f0}
 body.light .mc-option.selected{border-color:var(--b);background:#e8f2ff}
@@ -43,6 +44,10 @@ body.light .card-title{color:#000}
 body.light .score-pill{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v)) border-box;color:#000}
 body.light .subj-btn{background:#f5f5f5;color:#333;border-color:#ccc}
 body.light .subj-btn:hover{border-color:#888}
+body.light .pdf-viewer-panel{background:#fafafa;border-color:#ccc}
+body.light .pdf-viewer-header{background:#f0f0f0;border-bottom-color:#ddd;color:#000}
+body.light .pdf-viewer-fallback{background:#fff5f5;border-color:#fcc;color:#900}
+body.light .pdf-viewer-fallback a{color:var(--b)}
 .rainbow-bar{height:5px;background:linear-gradient(90deg,var(--r),var(--o),var(--y),var(--g),var(--b),var(--i),var(--v));background-size:200% 100%;animation:rainbow-slide 3s linear infinite}
 @keyframes rainbow-slide{0%{background-position:0% 0%}100%{background-position:200% 0%}}
 header{background:#000;border-bottom:1px solid var(--border);padding:20px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 24px rgba(0,0,0,.4)}
@@ -76,6 +81,81 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .subj-status{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#333}
 .subj-status.done{background:var(--g);box-shadow:0 0 6px var(--g)}
 .subj-status.wip{background:var(--o);box-shadow:0 0 6px var(--o)}
+
+/* ==== SUBJECT LAYOUT WITH PDF ==== */
+.subject-layout{display:flex;gap:20px;align-items:flex-start}
+.subject-main{flex:1;min-width:0}
+.pdf-viewer-panel{
+  display:none;
+  flex-shrink:0;
+  width:42%;
+  max-width:560px;
+  position:sticky;
+  top:90px;
+  background:#0a0a0a;
+  border:2px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  max-height:calc(100vh - 110px);
+}
+.pdf-viewer-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:#111;border-bottom:1px solid var(--border);
+  font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--text);
+}
+.pdf-viewer-header .pdf-dots{display:flex;gap:6px}
+.pdf-viewer-header .dot{width:10px;height:10px;border-radius:50%}
+.pdf-viewer-header .dot.r{background:#ff5f56}
+.pdf-viewer-header .dot.y{background:#ffbd2e}
+.pdf-viewer-header .dot.g{background:#27c93f}
+.pdf-viewer-actions{display:flex;gap:6px;align-items:center}
+.pdf-viewer-actions a, .pdf-viewer-actions button{
+  font-family:var(--mono);font-size:.68rem;font-weight:700;
+  padding:4px 10px;border-radius:5px;background:#222;color:#ddd;
+  border:1px solid #333;cursor:pointer;text-decoration:none;
+  transition:all .2s;
+}
+.pdf-viewer-actions a:hover, .pdf-viewer-actions button:hover{background:#333;color:#fff}
+.pdf-viewer-body{
+  width:100%;
+  height:calc(100vh - 170px);
+  min-height:500px;
+  background:#1a1a1a;
+  position:relative;
+}
+.pdf-viewer-body iframe{
+  width:100%;height:100%;border:none;background:#fff;display:block;
+}
+.pdf-viewer-fallback{
+  position:absolute;inset:0;padding:20px;
+  background:#1a0000;border:2px dashed var(--r);border-radius:8px;
+  color:#ffaaaa;font-family:var(--mono);font-size:.82rem;
+  display:none;flex-direction:column;gap:10px;align-items:center;justify-content:center;
+  text-align:center;line-height:1.6;
+}
+.pdf-viewer-fallback.show{display:flex}
+.pdf-viewer-fallback a{color:var(--b);text-decoration:underline;font-weight:700}
+.pdf-viewer-footer{
+  padding:8px 14px;background:#0d0d0d;border-top:1px solid var(--border);
+  font-family:var(--mono);font-size:.65rem;color:#666;
+  display:flex;justify-content:space-between;align-items:center;
+}
+
+/* Show PDF panel on PC or landscape tablet/phone */
+@media (min-width: 1100px) {
+  .pdf-viewer-panel{display:block}
+  .main-wrap{max-width:1400px}
+}
+@media (min-width: 900px) and (max-width: 1099px) and (orientation: landscape) {
+  .pdf-viewer-panel{display:block;width:38%}
+}
+@media (max-width: 899px) and (orientation: landscape) {
+  .pdf-viewer-panel{display:block;width:42%}
+  .subject-layout{gap:12px}
+  .pdf-viewer-body{min-height:300px;height:calc(100vh - 150px)}
+}
+
 .subject-card{background:#0a0a0a;border:2px solid var(--border);border-radius:16px;overflow:hidden;animation:slideIn .35s cubic-bezier(.34,1.56,.64,1)}
 @keyframes slideIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
 .card-header{padding:22px 26px;border-bottom:2px solid var(--border);display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap}
@@ -104,51 +184,27 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .code-label{font-family:var(--mono);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666}
 /* ===== CODE EDITOR (VS Code / Spyder style) ===== */
 .code-editor-wrap{
-  display:flex;
-  border:2px solid var(--border);
-  border-radius:8px;
-  overflow:hidden;
-  background:#000;
-  position:relative;
+  display:flex;flex-direction:column;
+  border:2px solid var(--border);border-radius:8px;
+  overflow:hidden;background:#000;
   transition:border-color .2s, box-shadow .2s;
 }
-body.light .code-editor-wrap{background:#0a0a0a;border-color:#ccc}
 .code-editor-wrap.focused{border-color:var(--b);box-shadow:0 0 0 3px #0088ff22}
+.code-editor-body{display:flex;min-height:0}
 .code-gutter{
-  background:#0a0a0a;
-  color:#555;
+  background:#0a0a0a;color:#555;
   padding:12px 6px 12px 10px;
-  font-family:var(--mono);
-  font-size:.82rem;
-  line-height:1.6;
-  text-align:right;
-  user-select:none;
-  min-width:38px;
-  white-space:pre;
-  overflow:hidden;
-  border-right:1px solid #1a1a1a;
+  font-family:var(--mono);font-size:.82rem;line-height:1.6;
+  text-align:right;user-select:none;min-width:38px;
+  white-space:pre;overflow:hidden;border-right:1px solid #1a1a1a;
 }
-body.light .code-gutter{background:#0d0d0d;color:#666;border-right-color:#222}
-.code-main{
-  flex:1;
-  position:relative;
-  min-width:0;
-}
+.code-main{flex:1;position:relative;min-width:0}
 .code-highlight{
-  position:absolute;
-  top:0;left:0;right:0;bottom:0;
-  margin:0;
-  padding:12px 14px;
-  font-family:var(--mono);
-  font-size:.82rem;
-  line-height:1.6;
-  white-space:pre-wrap;
-  word-break:break-word;
-  overflow-wrap:break-word;
-  pointer-events:none;
-  overflow:hidden;
-  color:#e0e0e0;
-  tab-size:4;
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  margin:0;padding:12px 14px;
+  font-family:var(--mono);font-size:.82rem;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;
+  pointer-events:none;overflow:hidden;color:#e0e0e0;tab-size:4;
 }
 .code-highlight .hl-kw{color:#cc7aff;font-weight:700}
 .code-highlight .hl-str{color:#a6e22e}
@@ -165,42 +221,21 @@ body.light .code-highlight .hl-bi{color:#0077aa}
 body.light .code-highlight .hl-dec{color:#c41e5c}
 body.light .code-highlight .hl-self{color:#c41e5c}
 textarea.code-input{
-  width:100%;
-  min-height:130px;
-  font-family:var(--mono);
-  font-size:.82rem;
-  padding:12px 14px;
-  border:none;
-  background:transparent;
-  color:transparent;
-  caret-color:#fff;
-  resize:vertical;
-  outline:none;
-  tab-size:4;
-  line-height:1.6;
-  white-space:pre-wrap;
-  word-break:break-word;
-  overflow-wrap:break-word;
-  position:relative;
-  z-index:2;
-  margin:0;
-  border-radius:0;
+  width:100%;min-height:130px;
+  font-family:var(--mono);font-size:.82rem;
+  padding:12px 14px;border:none;
+  background:transparent;color:transparent;caret-color:#fff;
+  resize:vertical;outline:none;tab-size:4;line-height:1.6;
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;
+  position:relative;z-index:2;margin:0;border-radius:0;
 }
 body.light textarea.code-input{caret-color:#fff}
 textarea.code-input::selection{background:#0088ff55;color:transparent}
-textarea.text-input{width:100%;min-height:80px;font-family:var(--sans);font-size:.88rem;padding:10px 12px;border:2px solid var(--border);border-radius:8px;background:#000;color:var(--text);resize:vertical;outline:none;transition:border-color .2s,box-shadow .2s;line-height:1.6}
-textarea.text-input:focus{border-color:var(--v);box-shadow:0 0 0 3px #cc00ff22}
 .editor-statusbar{
-  display:flex;
-  justify-content:space-between;
-  font-family:var(--mono);
-  font-size:.65rem;
-  color:#555;
-  padding:3px 10px;
-  background:#0a0a0a;
-  border-top:1px solid #1a1a1a;
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:.65rem;color:#555;
+  padding:3px 10px;background:#0a0a0a;border-top:1px solid #1a1a1a;
 }
-body.light .editor-statusbar{background:#0d0d0d;color:#aaa;border-top-color:#222}
 .mc-wrap{display:flex;flex-direction:column;gap:8px}
 .mc-option{display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all .2s;user-select:none;font-size:.88rem;color:var(--text)}
 .mc-option:hover{border-color:#555;background:#1a1a1a}
@@ -290,6 +325,20 @@ body.light .progress-bar{background:#eee}
 </div>
 <script>
 // =====================================================
+// PDF URLs per subject (from ecebac.fr / glassus mirrors)
+// =====================================================
+const PDF_BASE = 'https://glassus.github.io/terminale_nsi/T6_6_Epreuve_pratique/data2026/';
+const ECEBAC_BASE = 'https://ecebac.fr/fichiers/nsi/2026/';
+function pdfUrl(id){
+  const nn = String(id).padStart(2,'0');
+  return `${ECEBAC_BASE}sujet_${nn}.pdf`;
+}
+function pdfUrlFallback(id){
+  const nn = String(id).padStart(2,'0');
+  return `${PDF_BASE}sujet_${nn}.pdf`;
+}
+
+// =====================================================
 // AUDIO
 // =====================================================
 const AudioCtx=window.AudioContext||window.webkitAudioContext;let actx;
@@ -320,13 +369,9 @@ function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-ba
 
 // =====================================================
 // SCORE / PROGRESS
-// Completed = unique questions in state.answered (any status)
-// Total = all questions across all subjects
 // =====================================================
 let totalQuestions=0;
-function getCompletedCount(){
-  return Object.keys(state.answered).length;
-}
+function getCompletedCount(){ return Object.keys(state.answered).length; }
 function updateScoreDisplay(){
   const completed = getCompletedCount();
   document.getElementById('score-display').textContent = `⚡ ${completed} / ${totalQuestions}`;
@@ -341,7 +386,7 @@ function updateProgress(){
 // =====================================================
 // PERSISTENCE
 // =====================================================
-const STORAGE_KEY='nsi_bns_2026_state_v2';
+const STORAGE_KEY='nsi_bns_2026_state_v3';
 const THEME_KEY='nsi_bns_2026_theme_v1';
 function saveState(){
   try{
@@ -388,20 +433,18 @@ function checkAnswer_local(q, userAnswer) {
 // PYTHON SYNTAX HIGHLIGHTING
 // =====================================================
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
-const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError'];
+const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 
 function escapeHtml(s){
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function highlightPython(code){
-  // Tokenize: scan character by character, producing tokens with types
   const tokens = [];
   let i = 0;
   const n = code.length;
   while (i < n) {
     const c = code[i];
-    // Comments
     if (c === '#') {
       let j = i;
       while (j < n && code[j] !== '\n') j++;
@@ -409,7 +452,6 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Triple-quoted strings
     if ((c === '"' && code.substr(i, 3) === '"""') || (c === "'" && code.substr(i, 3) === "'''")) {
       const quote = code.substr(i, 3);
       let j = i + 3;
@@ -422,7 +464,6 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Single-line strings
     if (c === '"' || c === "'") {
       const quote = c;
       let j = i + 1;
@@ -435,7 +476,6 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Decorators
     if (c === '@') {
       let j = i + 1;
       while (j < n && /[a-zA-Z0-9_.]/.test(code[j])) j++;
@@ -443,7 +483,6 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Numbers
     if (/[0-9]/.test(c)) {
       let j = i;
       while (j < n && /[0-9.xXoObBeE_]/.test(code[j])) j++;
@@ -451,7 +490,6 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Identifiers (keywords, builtins, self, plain)
     if (/[a-zA-Z_]/.test(c)) {
       let j = i;
       while (j < n && /[a-zA-Z0-9_]/.test(code[j])) j++;
@@ -464,11 +502,9 @@ function highlightPython(code){
       i = j;
       continue;
     }
-    // Anything else (whitespace, punctuation)
     tokens.push({type:'plain', text: c});
     i++;
   }
-  // Render
   return tokens.map(t => {
     const esc = escapeHtml(t.text);
     if (t.type === 'plain') return esc;
@@ -495,6 +531,9 @@ function setupCodeEditor(textarea, qid){
       highlight.scrollTop = textarea.scrollTop;
       highlight.scrollLeft = textarea.scrollLeft;
     }
+    if (gutter) {
+      gutter.scrollTop = textarea.scrollTop;
+    }
   }
 
   textarea.addEventListener('input', updateAll);
@@ -509,7 +548,6 @@ function setupCodeEditor(textarea, qid){
     const pos = textarea.selectionStart;
     const end = textarea.selectionEnd;
 
-    // Tab insert
     if (e.key === 'Tab' && !e.shiftKey) {
       e.preventDefault();
       if (pos === end) {
@@ -517,7 +555,6 @@ function setupCodeEditor(textarea, qid){
         textarea.value = val.slice(0, pos) + ins + val.slice(end);
         textarea.selectionStart = textarea.selectionEnd = pos + 4;
       } else {
-        // Indent selection
         const before = val.lastIndexOf('\n', pos - 1) + 1;
         const chunk = val.slice(before, end);
         const indented = chunk.replace(/^/gm, '    ');
@@ -529,7 +566,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Shift+Tab unindent
     if (e.key === 'Tab' && e.shiftKey) {
       e.preventDefault();
       const before = val.lastIndexOf('\n', pos - 1) + 1;
@@ -542,7 +578,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Enter with auto-indent
     if (e.key === 'Enter') {
       e.preventDefault();
       const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
@@ -552,7 +587,6 @@ function setupCodeEditor(textarea, qid){
       const trimmed = currentLine.trimEnd();
       let extra = '';
       if (trimmed.endsWith(':')) extra = '    ';
-      // If current line is just whitespace + "pass" or similar, might want to reduce
       const insert = '\n' + indent + extra;
       textarea.value = val.slice(0, pos) + insert + val.slice(end);
       textarea.selectionStart = textarea.selectionEnd = pos + insert.length;
@@ -560,7 +594,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Backspace: remove matching pair if cursor is between them
     if (e.key === 'Backspace' && pos === end && pos > 0) {
       const prev = val[pos - 1];
       const next = val[pos];
@@ -574,13 +607,11 @@ function setupCodeEditor(textarea, qid){
       }
     }
 
-    // Auto-close brackets and quotes
     const autoPairs = {'(':')', '[':']', '{':'}'};
     if (autoPairs[e.key]) {
       e.preventDefault();
       const closing = autoPairs[e.key];
       if (pos !== end) {
-        // Wrap selection
         const sel = val.slice(pos, end);
         textarea.value = val.slice(0, pos) + e.key + sel + closing + val.slice(end);
         textarea.selectionStart = pos + 1;
@@ -593,7 +624,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Skip over closing bracket if already there
     if (e.key === ')' || e.key === ']' || e.key === '}') {
       if (pos === end && val[pos] === e.key) {
         e.preventDefault();
@@ -602,15 +632,12 @@ function setupCodeEditor(textarea, qid){
       }
     }
 
-    // Quote auto-close
     if (e.key === '"' || e.key === "'") {
-      // If we're typing a quote and the next char is the same quote, skip over
       if (pos === end && val[pos] === e.key) {
         e.preventDefault();
         textarea.selectionStart = textarea.selectionEnd = pos + 1;
         return;
       }
-      // If nothing selected and prev is not alphanumeric/underscore, auto-pair
       if (pos === end) {
         const prevChar = val[pos - 1] || ' ';
         if (!/[a-zA-Z0-9_]/.test(prevChar)) {
@@ -621,7 +648,6 @@ function setupCodeEditor(textarea, qid){
           return;
         }
       } else {
-        // Wrap selection in quotes
         e.preventDefault();
         const sel = val.slice(pos, end);
         textarea.value = val.slice(0, pos) + e.key + sel + e.key + val.slice(end);
@@ -632,7 +658,6 @@ function setupCodeEditor(textarea, qid){
       }
     }
 
-    // Ctrl+/ toggle comment
     if ((e.ctrlKey || e.metaKey) && e.key === '/') {
       e.preventDefault();
       const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
@@ -653,7 +678,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Ctrl+D duplicate line
     if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
       e.preventDefault();
       const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
@@ -666,7 +690,6 @@ function setupCodeEditor(textarea, qid){
       return;
     }
 
-    // Ctrl+Shift+K delete line
     if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k')) {
       e.preventDefault();
       const lineStart = val.lastIndexOf('\n', pos - 1) + 1;
@@ -695,7 +718,6 @@ function updateLineNumbers(textarea, gutter){
 
 function updateHighlight(textarea, highlight){
   if (!highlight) return;
-  // Add trailing newline so highlight pre matches textarea height
   highlight.innerHTML = highlightPython(textarea.value) + '\n';
 }
 
@@ -2584,7 +2606,47 @@ function selectSubject(id){
   renderGrid();
   const s = SUBJECTS.find(x => x.id === id);
   const el = document.getElementById('subject-content');
-  let html = `<div class="subject-card">
+  
+  // Build PDF viewer panel
+  const pdfMain = pdfUrl(id);
+  const pdfAlt = pdfUrlFallback(id);
+  const pdfPanelHTML = `
+    <div class="pdf-viewer-panel" id="pdf-panel">
+      <div class="pdf-viewer-header">
+        <div class="pdf-dots">
+          <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        </div>
+        <div style="flex:1;text-align:center;font-size:.7rem;color:#888">
+          📄 Sujet ${id}.pdf
+        </div>
+        <div class="pdf-viewer-actions">
+          <a href="${pdfMain}" target="_blank" download title="Télécharger le PDF">⬇</a>
+          <a href="${pdfMain}" target="_blank" title="Ouvrir dans un nouvel onglet">↗</a>
+        </div>
+      </div>
+      <div class="pdf-viewer-body">
+        <iframe id="pdf-iframe" src="${pdfMain}" title="Sujet ${id} PDF"></iframe>
+        <div class="pdf-viewer-fallback" id="pdf-fallback">
+          <div style="font-size:2rem">📄</div>
+          <div><strong>Le PDF ne peut pas être affiché ici.</strong></div>
+          <div>Le sujet officiel est disponible en téléchargement :</div>
+          <a href="${pdfMain}" target="_blank" download>⬇ Télécharger Sujet ${id}.pdf</a>
+          <a href="${pdfAlt}" target="_blank" download>⬇ Source alternative</a>
+          <div style="font-size:.72rem;color:#888;margin-top:8px">
+            Ou consulter <a href="https://ecebac.fr/listaca.php?mat=94" target="_blank">ecebac.fr</a>
+          </div>
+        </div>
+      </div>
+      <div class="pdf-viewer-footer">
+        <span>📁 BNS NSI 2026 — Sujet ${String(id).padStart(2,'0')}</span>
+        <span>Officiel</span>
+      </div>
+    </div>
+  `;
+  
+  let html = `<div class="subject-layout">
+  <div class="subject-main">
+  <div class="subject-card">
   <div class="card-header">
     <span class="card-badge tag badge-${id}">Sujet ${id}</span>
     <div style="flex:1">
@@ -2600,7 +2662,7 @@ function selectSubject(id){
   s.questions.forEach((q, qi) => {
     const colorClass = `q-num-${(qi % 6) + 1}`;
     const isAns = state.answered[q.id];
-    const blockClass = isAns ? (isAns.correct === 'revealed' ? '' : (isAns.correct ? 'answered-correct' : 'answered-wrong')) : '';
+    const blockClass = isAns ? (isAns.correct === true ? 'answered-correct' : (isAns.correct === false ? 'answered-wrong' : '')) : '';
     html += `<div class="question-block ${blockClass}" id="qblock-${q.id}">
     <div class="q-header">
       <span class="q-num tag ${colorClass}">Q${q.num}</span>
@@ -2621,19 +2683,22 @@ function selectSubject(id){
       });
       html += `</div>`;
     } else {
+      // ALL input boxes are Python editors (code AND text)
       const starter = q.starter || '';
       const currentVal = isAns && typeof isAns.value === 'string' ? isAns.value : starter;
-      if (q.type === 'code') {
-        html += `<div class="code-editor-wrap" id="editor-${q.id}">
+      html += `<div class="code-editor-wrap" id="editor-${q.id}">
+        <div class="code-editor-body">
           <div class="code-gutter">1</div>
           <div class="code-main">
             <pre class="code-highlight"></pre>
-            <textarea class="code-input" id="input-${q.id}" placeholder="# Complétez le code ci-dessous..." spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">${escHtml(currentVal)}</textarea>
+            <textarea class="code-input" id="input-${q.id}" placeholder="${q.type === 'code' ? '# Complétez le code ci-dessous...' : '# Écrivez votre réponse ici (code ou explication)...'}" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off">${escHtml(currentVal)}</textarea>
           </div>
-        </div>`;
-      } else {
-        html += `<textarea class="text-input" id="input-${q.id}" placeholder="Votre réponse..." spellcheck="false">${escHtml(currentVal)}</textarea>`;
-      }
+        </div>
+        <div class="editor-statusbar">
+          <span>Python • UTF-8</span>
+          <span>Ln 1, Col 1</span>
+        </div>
+      </div>`;
     }
     html += (q.hint ? `<button class="hint-btn" onclick="toggleHint('${q.id}')">💡 Indice</button><div class="hint-box" id="hint-${q.id}">${q.hint}</div>` : '');
     html += `<div class="btn-row">
@@ -2644,12 +2709,39 @@ function selectSubject(id){
     <div class="feedback" id="fb-${q.id}"></div>
     </div></div>`;
   });
-  html += `</div></div>`;
+  html += `</div></div>
+  </div>
+  ${pdfPanelHTML}
+  </div>`;
   el.innerHTML = html;
 
-  // Setup code editors
+  // Setup PDF fallback detection
+  setTimeout(() => {
+    const iframe = document.getElementById('pdf-iframe');
+    const fallback = document.getElementById('pdf-fallback');
+    if (iframe && fallback) {
+      let loaded = false;
+      iframe.addEventListener('load', () => { loaded = true; });
+      // If the PDF fails to load (CORS/404), show fallback after timeout
+      setTimeout(() => {
+        if (!loaded) {
+          try {
+            // Try to detect if iframe is blank or has error
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            if (!doc || !doc.body || doc.body.innerHTML.trim().length < 50) {
+              fallback.classList.add('show');
+            }
+          } catch(e) {
+            // Cross-origin: iframe loaded something, assume OK
+          }
+        }
+      }, 4000);
+    }
+  }, 100);
+
+  // Setup ALL code editors (both code and text types)
   s.questions.forEach(q => {
-    if (q.type === 'code') {
+    if (q.type !== 'mc') {
       const ta = document.getElementById(`input-${q.id}`);
       if (ta) setupCodeEditor(ta, q.id);
     }
@@ -2680,7 +2772,7 @@ function escHtml(str){
 function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
   if (correct === 'revealed') {
     return `<div class="feedback-title">📖 Correction officielle</div>
-    <p style="margin-bottom:8px;font-size:.82rem;opacity:.9">Vous pouvez toujours tenter de répondre correctement après avoir consulté la correction.</p>
+    <p style="margin-bottom:8px;font-size:.82rem;opacity:.9">💡 Regarder la correction ou les indices ne bloque pas votre score. Vous pouvez toujours tenter de répondre correctement !</p>
     <pre>${escHtml(q.correction)}</pre>`;
   }
   const scoreInfo = feedbackMsg ? `<div style="margin-top:8px;padding:8px;background:#111;border-radius:6px;font-size:.82rem;color:#aaa">${feedbackMsg}</div>` : '';
@@ -2691,7 +2783,7 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
 }
 
 // =====================================================
-// MULTIPLE CHOICE
+// MULTIPLE CHOICE — Looking at hint/correction does NOT block
 // =====================================================
 function selectMC(qid, optIdx, subjectId){
   playClick();
@@ -2701,16 +2793,17 @@ function selectMC(qid, optIdx, subjectId){
   const wasAnswered = !!state.answered[qid];
   const prev = state.answered[qid];
 
-  // Score only if this is the first real attempt (not after reveal, not after previous attempt)
-  if (!wasAnswered) {
-    // First interaction ever with this question - count it
-    state.answered[qid] = { correct, selected_idx: optIdx, scored: true };
-  } else if (prev.correct === 'revealed') {
-    // They looked at the answer before - now they're making a real choice
-    // Mark as scored with their choice
-    state.answered[qid] = { correct, selected_idx: optIdx, scored: true };
+  // Score logic:
+  // - First real attempt → score it (correct or wrong)
+  // - Previously revealed (correct='revealed') → user can now answer properly, score it
+  // - Already attempted correctly → no change
+  // - Already attempted wrongly → can update but no re-score
+  const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
+  const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
+  
+  if (!wasAnswered || wasRevealedOnly) {
+    state.answered[qid] = { correct, selected_idx: optIdx };
   } else {
-    // Already attempted - update selection but don't re-score
     state.answered[qid] = { ...prev, correct, selected_idx: optIdx };
   }
   saveState();
@@ -2730,12 +2823,12 @@ function selectMC(qid, optIdx, subjectId){
     fb.className = 'feedback show correct';
     fb.innerHTML = renderFeedbackHTML(q, true, '', null);
     block.className = 'question-block answered-correct';
-    if (!wasAnswered || prev.correct === 'revealed') { playSuccess(); }
-    if (!wasAnswered || prev.correct === 'revealed') {
+    if (!wasAttempted) { playSuccess(); }
+    if (!wasAttempted) {
       streak++;
       const rect = mc.getBoundingClientRect();
       launchConfetti(rect.left + rect.width / 2, rect.top);
-      setTimeout(() => showStreak('Bonne réponse ! 🎯', '✅'), 200);
+      setTimeout(() => showStreak(wasRevealedOnly ? 'Bonne réponse après consultation ! 🎯' : 'Bonne réponse ! 🎯', '✅'), 200);
     }
   } else {
     fb.className = 'feedback show wrong';
@@ -2754,10 +2847,11 @@ function toggleHint(qid){
   const h = document.getElementById(`hint-${qid}`);
   h.classList.toggle('show');
   playClick();
+  // Hints do NOT mark answer at all
 }
 
 // =====================================================
-// CHECK ANSWER — Reveal does NOT block scoring
+// CHECK ANSWER — Hint/Reveal do NOT block getting it right
 // =====================================================
 function checkAnswer(qid, subjectId){
   playClick();
@@ -2779,14 +2873,13 @@ function checkAnswer(qid, subjectId){
   const result = checkAnswer_local(q, userVal);
   const correct = result.correct;
 
-  // Only count score ONCE. If previously revealed, allow scoring now (first real attempt).
-  const alreadyScored = wasAnswered && prev.correct !== 'revealed';
-
-  if (!alreadyScored) {
-    // First real attempt (could be first ever, or first after reveal)
-    state.answered[qid] = { correct, value: userVal, feedback: result.feedback, scored: true };
+  const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
+  const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
+  
+  if (!wasAnswered || wasRevealedOnly) {
+    state.answered[qid] = { correct, value: userVal, feedback: result.feedback };
   } else {
-    // Already scored previously - just update but don't change scoring
+    // Already attempted - allow updates but don't recount score
     state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback };
   }
   saveState();
@@ -2795,19 +2888,19 @@ function checkAnswer(qid, subjectId){
     fb.className = 'feedback show correct';
     fb.innerHTML = renderFeedbackHTML(q, true, userVal, result.feedback);
     block.className = 'question-block answered-correct';
-    if (!alreadyScored) {
+    if (!wasAttempted) {
       playSuccess();
       streak++;
       const rect = input.getBoundingClientRect();
       launchConfetti(rect.left + rect.width / 2, rect.top);
       const msgs = ['Parfait ! 🎯', 'Excellent ! 💪', 'Bravo ! 🔥', 'Super ! ⭐'];
-      setTimeout(() => showStreak(msgs[Math.min(streak - 1, msgs.length - 1)], '🎉'), 200);
+      setTimeout(() => showStreak(wasRevealedOnly ? 'Bonne réponse après consultation ! 🎯' : msgs[Math.min(streak - 1, msgs.length - 1)], '🎉'), 200);
     }
   } else {
     fb.className = 'feedback show wrong';
     fb.innerHTML = renderFeedbackHTML(q, false, userVal, result.feedback);
     block.className = 'question-block answered-wrong';
-    if (!alreadyScored) { playFail(); streak = 0; showStreak('Pas encore… Réessaie ou regarde la correction !', '💪'); }
+    if (!wasAnswered) { playFail(); streak = 0; showStreak('Pas encore… Réessaie ou regarde la correction !', '💪'); }
   }
   updateScoreDisplay();
   renderGrid();
@@ -2828,18 +2921,15 @@ function revealAnswer(qid, subjectId){
   const prev = state.answered[qid];
 
   if (!wasAnswered) {
-    // First interaction: mark as revealed but do NOT lock scoring
-    // User can still answer and get it right later
+    // Mark as "revealed" (a special state) - user can still answer and get it right
     state.answered[qid] = { correct: 'revealed', value: '', scored: false };
   } else if (prev.correct === true) {
-    // Already got it right — keep as correct
-    // Nothing to change
+    // Already correct — keep as correct
   } else if (prev.correct === false) {
-    // Was marked wrong — keep as wrong (they already attempted)
-    // But still show the correction
-  } else {
-    // Already revealed — no change
+    // Already wrong — keep as wrong but show correction
   }
+  // 'revealed' state stays 'revealed' until user gives a real answer
+  
   saveState();
   updateScoreDisplay();
   renderGrid();
@@ -2854,8 +2944,8 @@ function resetAnswer(qid, subjectId){
   const subject = SUBJECTS.find(s => s.id === subjectId);
   const q = subject && subject.questions.find(q => q.id === qid);
   if (input && q) input.value = q.starter || '';
-  // Re-trigger editor update
-  if (q && q.type === 'code') {
+  // Re-trigger editor update for all input types
+  if (q) {
     const wrap = document.getElementById(`editor-${qid}`);
     if (wrap) {
       const gutter = wrap.querySelector('.code-gutter');
@@ -2870,10 +2960,19 @@ function resetAnswer(qid, subjectId){
   if (fb) { fb.className = 'feedback'; fb.innerHTML = ''; }
   const block = document.getElementById(`qblock-${qid}`);
   if (block) block.className = 'question-block';
-  // Do NOT remove from state.answered to preserve score integrity
   saveState();
   renderGrid();
 }
+
+// =====================================================
+// TAB KEY (global, for any textarea)
+// =====================================================
+document.addEventListener('keydown',function(e){
+  if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
+    // Handled per-editor; prevent default
+    e.preventDefault();
+  }
+});
 
 // =====================================================
 // INIT
