@@ -82,7 +82,6 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .subj-status.done{background:var(--g);box-shadow:0 0 6px var(--g)}
 .subj-status.wip{background:var(--o);box-shadow:0 0 6px var(--o)}
 
-/* ==== SUBJECT LAYOUT WITH PDF ==== */
 .subject-layout{display:flex;gap:20px;align-items:flex-start}
 .subject-main{flex:1;min-width:0}
 .pdf-viewer-panel{
@@ -142,7 +141,6 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
   display:flex;justify-content:space-between;align-items:center;
 }
 
-/* Show PDF panel on PC or landscape tablet/phone */
 @media (min-width: 1100px) {
   .pdf-viewer-panel{display:block}
   .main-wrap{max-width:1400px}
@@ -182,7 +180,6 @@ body.light .pdf-link.secondary:hover{color:#000;border-color:#000}
 .q-text pre{background:#000;color:#00ff88;padding:12px;border-radius:8px;font-size:.78rem;overflow-x:auto;margin:8px 0;font-family:var(--mono);white-space:pre-wrap;word-break:break-word}
 .code-area-wrap{padding:14px 18px;display:flex;flex-direction:column;gap:10px}
 .code-label{font-family:var(--mono);font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#666}
-/* ===== CODE EDITOR (VS Code / Spyder style) ===== */
 .code-editor-wrap{
   display:flex;flex-direction:column;
   border:2px solid var(--border);border-radius:8px;
@@ -325,17 +322,16 @@ body.light .progress-bar{background:#eee}
 </div>
 <script>
 // =====================================================
-// PDF URLs per subject (from ecebac.fr / glassus mirrors)
+// PDF URLs — from ecebac.fr
+// Sujet 1  -> https://ecebac.fr/sujet/4267
+// Sujet 23 -> https://ecebac.fr/sujet/4289
+// Formula: https://ecebac.fr/sujet/${4266 + id}
 // =====================================================
-const PDF_BASE = 'https://glassus.github.io/terminale_nsi/T6_6_Epreuve_pratique/data2026/';
-const ECEBAC_BASE = 'https://ecebac.fr/fichiers/nsi/2026/';
 function pdfUrl(id){
-  const nn = String(id).padStart(2,'0');
-  return `${ECEBAC_BASE}sujet_${nn}.pdf`;
+  return `https://ecebac.fr/sujet/${4266 + id}`;
 }
 function pdfUrlFallback(id){
-  const nn = String(id).padStart(2,'0');
-  return `${PDF_BASE}sujet_${nn}.pdf`;
+  return `https://glassus.github.io/terminale_nsi/T6_6_Epreuve_pratique/BNS_2026/`;
 }
 
 // =====================================================
@@ -2557,9 +2553,6 @@ totalQuestions = SUBJECTS.reduce((a,s) => a + s.questions.length, 0);
 const state = { currentSubject: null, answered: {} };
 let streak = 0;
 
-// =====================================================
-// THEME TOGGLE
-// =====================================================
 function initTheme(){
   const saved = localStorage.getItem(THEME_KEY);
   if(saved === 'light'){
@@ -2576,9 +2569,6 @@ function toggleTheme(){
 }
 document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-// =====================================================
-// RENDER GRID
-// =====================================================
 function renderGrid(){
   const grid = document.getElementById('subject-grid');
   grid.innerHTML = '';
@@ -2597,9 +2587,6 @@ function renderGrid(){
   });
 }
 
-// =====================================================
-// RENDER SUBJECT
-// =====================================================
 function selectSubject(id){
   state.currentSubject = id;
   saveState();
@@ -2607,7 +2594,6 @@ function selectSubject(id){
   const s = SUBJECTS.find(x => x.id === id);
   const el = document.getElementById('subject-content');
   
-  // Build PDF viewer panel
   const pdfMain = pdfUrl(id);
   const pdfAlt = pdfUrlFallback(id);
   const pdfPanelHTML = `
@@ -2617,11 +2603,10 @@ function selectSubject(id){
           <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
         </div>
         <div style="flex:1;text-align:center;font-size:.7rem;color:#888">
-          📄 Sujet ${id}.pdf
+          📄 Sujet ${String(id).padStart(2,'0')} — ecebac.fr
         </div>
         <div class="pdf-viewer-actions">
-          <a href="${pdfMain}" target="_blank" download title="Télécharger le PDF">⬇</a>
-          <a href="${pdfMain}" target="_blank" title="Ouvrir dans un nouvel onglet">↗</a>
+          <a href="${pdfMain}" target="_blank" title="Ouvrir sur ecebac.fr">↗</a>
         </div>
       </div>
       <div class="pdf-viewer-body">
@@ -2629,11 +2614,10 @@ function selectSubject(id){
         <div class="pdf-viewer-fallback" id="pdf-fallback">
           <div style="font-size:2rem">📄</div>
           <div><strong>Le PDF ne peut pas être affiché ici.</strong></div>
-          <div>Le sujet officiel est disponible en téléchargement :</div>
-          <a href="${pdfMain}" target="_blank" download>⬇ Télécharger Sujet ${id}.pdf</a>
-          <a href="${pdfAlt}" target="_blank" download>⬇ Source alternative</a>
+          <div>Cliquez pour ouvrir le sujet officiel :</div>
+          <a href="${pdfMain}" target="_blank">↗ Ouvrir Sujet ${String(id).padStart(2,'0')} sur ecebac.fr</a>
           <div style="font-size:.72rem;color:#888;margin-top:8px">
-            Ou consulter <a href="https://ecebac.fr/listaca.php?mat=94" target="_blank">ecebac.fr</a>
+            Tous les sujets : <a href="https://ecebac.fr/listaca.php?mat=94" target="_blank">ecebac.fr/listaca.php?mat=94</a>
           </div>
         </div>
       </div>
@@ -2683,7 +2667,6 @@ function selectSubject(id){
       });
       html += `</div>`;
     } else {
-      // ALL input boxes are Python editors (code AND text)
       const starter = q.starter || '';
       const currentVal = isAns && typeof isAns.value === 'string' ? isAns.value : starter;
       html += `<div class="code-editor-wrap" id="editor-${q.id}">
@@ -2715,18 +2698,15 @@ function selectSubject(id){
   </div>`;
   el.innerHTML = html;
 
-  // Setup PDF fallback detection
   setTimeout(() => {
     const iframe = document.getElementById('pdf-iframe');
     const fallback = document.getElementById('pdf-fallback');
     if (iframe && fallback) {
       let loaded = false;
       iframe.addEventListener('load', () => { loaded = true; });
-      // If the PDF fails to load (CORS/404), show fallback after timeout
       setTimeout(() => {
         if (!loaded) {
           try {
-            // Try to detect if iframe is blank or has error
             const doc = iframe.contentDocument || iframe.contentWindow.document;
             if (!doc || !doc.body || doc.body.innerHTML.trim().length < 50) {
               fallback.classList.add('show');
@@ -2739,7 +2719,6 @@ function selectSubject(id){
     }
   }, 100);
 
-  // Setup ALL code editors (both code and text types)
   s.questions.forEach(q => {
     if (q.type !== 'mc') {
       const ta = document.getElementById(`input-${q.id}`);
@@ -2747,7 +2726,6 @@ function selectSubject(id){
     }
   });
 
-  // Restore feedback
   s.questions.forEach(q => {
     if (state.answered[q.id]) {
       const fb = document.getElementById(`fb-${q.id}`);
@@ -2782,9 +2760,6 @@ function renderFeedbackHTML(q, correct, userValue, feedbackMsg){
   return `<div class="feedback-title">❌ Pas tout à fait…</div>${scoreInfo}<details style="margin-top:10px"><summary style="cursor:pointer;font-family:var(--mono);font-size:.75rem;color:#ff2244;font-weight:700">Voir la correction complète ▸</summary><pre>${escHtml(q.correction)}</pre></details>`;
 }
 
-// =====================================================
-// MULTIPLE CHOICE — Looking at hint/correction does NOT block
-// =====================================================
 function selectMC(qid, optIdx, subjectId){
   playClick();
   const subject = SUBJECTS.find(s => s.id === subjectId);
@@ -2793,11 +2768,6 @@ function selectMC(qid, optIdx, subjectId){
   const wasAnswered = !!state.answered[qid];
   const prev = state.answered[qid];
 
-  // Score logic:
-  // - First real attempt → score it (correct or wrong)
-  // - Previously revealed (correct='revealed') → user can now answer properly, score it
-  // - Already attempted correctly → no change
-  // - Already attempted wrongly → can update but no re-score
   const wasRevealedOnly = wasAnswered && prev.correct === 'revealed';
   const wasAttempted = wasAnswered && (prev.correct === true || prev.correct === false);
   
@@ -2840,19 +2810,12 @@ function selectMC(qid, optIdx, subjectId){
   renderGrid();
 }
 
-// =====================================================
-// HINT
-// =====================================================
 function toggleHint(qid){
   const h = document.getElementById(`hint-${qid}`);
   h.classList.toggle('show');
   playClick();
-  // Hints do NOT mark answer at all
 }
 
-// =====================================================
-// CHECK ANSWER — Hint/Reveal do NOT block getting it right
-// =====================================================
 function checkAnswer(qid, subjectId){
   playClick();
   const subject = SUBJECTS.find(s => s.id === subjectId);
@@ -2879,7 +2842,6 @@ function checkAnswer(qid, subjectId){
   if (!wasAnswered || wasRevealedOnly) {
     state.answered[qid] = { correct, value: userVal, feedback: result.feedback };
   } else {
-    // Already attempted - allow updates but don't recount score
     state.answered[qid] = { ...prev, correct, value: userVal, feedback: result.feedback };
   }
   saveState();
@@ -2906,9 +2868,6 @@ function checkAnswer(qid, subjectId){
   renderGrid();
 }
 
-// =====================================================
-// REVEAL — Does NOT block getting the question right later
-// =====================================================
 function revealAnswer(qid, subjectId){
   playReveal();
   const subject = SUBJECTS.find(s => s.id === subjectId);
@@ -2921,30 +2880,24 @@ function revealAnswer(qid, subjectId){
   const prev = state.answered[qid];
 
   if (!wasAnswered) {
-    // Mark as "revealed" (a special state) - user can still answer and get it right
     state.answered[qid] = { correct: 'revealed', value: '', scored: false };
   } else if (prev.correct === true) {
-    // Already correct — keep as correct
+    // Keep as correct
   } else if (prev.correct === false) {
-    // Already wrong — keep as wrong but show correction
+    // Keep as wrong but show correction
   }
-  // 'revealed' state stays 'revealed' until user gives a real answer
   
   saveState();
   updateScoreDisplay();
   renderGrid();
 }
 
-// =====================================================
-// RESET
-// =====================================================
 function resetAnswer(qid, subjectId){
   playClick();
   const input = document.getElementById(`input-${qid}`);
   const subject = SUBJECTS.find(s => s.id === subjectId);
   const q = subject && subject.questions.find(q => q.id === qid);
   if (input && q) input.value = q.starter || '';
-  // Re-trigger editor update for all input types
   if (q) {
     const wrap = document.getElementById(`editor-${qid}`);
     if (wrap) {
@@ -2964,19 +2917,12 @@ function resetAnswer(qid, subjectId){
   renderGrid();
 }
 
-// =====================================================
-// TAB KEY (global, for any textarea)
-// =====================================================
 document.addEventListener('keydown',function(e){
   if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
-    // Handled per-editor; prevent default
     e.preventDefault();
   }
 });
 
-// =====================================================
-// INIT
-// =====================================================
 loadState();
 initTheme();
 updateScoreDisplay();
