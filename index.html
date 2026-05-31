@@ -415,6 +415,52 @@ state.answered=data.answered;
 if(typeof data.currentSubject==='number') state.currentSubject=data.currentSubject;
 }catch(e){}
 }
+
+// =====================================================
+// ANTI-RATE LIMITING AI GRADING SYSTEM
+// =====================================================
+
+// Cache pour éviter de re-demander la même question
+const aiCache = new Map();
+let modelRotationIndex = 0;
+let requestCounter = 0;
+const lastRequestTime = new Map();
+
+// Liste de modèles pour rotation
+const AI_MODELS = [
+'openai/gpt-4o-mini',
+'openai/gpt-4o',
+'anthropic/claude-3-5-sonnet',
+'anthropic/claude-3-5-haiku',
+'google/gemini-1.5-flash',
+'google/gemini-1.5-pro',
+'meta-llama/llama-3.1-70b-instruct',
+'meta-llama/llama-3.1-8b-instruct',
+'mistral/mistral-large',
+'mistral/mistral-medium'
+];
+
+// Générer un hash simple pour le cache
+function simpleHash(str) {
+let hash = 0;
+for (let i = 0; i < str.length; i++) {
+const char = str.charCodeAt(i);
+hash = ((hash << 5) - hash) + char;
+hash = hash & hash;
+}
+return hash.toString();
+}
+
+// Délai aléatoire entre les requêtes
+function getRandomDelay() {
+return Math.floor(Math.random() * 2000) + 1000; // 1-3 secondes
+}
+
+// Backoff exponentiel en cas d'erreur
+function getBackoffDelay(attempt) {
+return Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 30000);
+}
+
 async function gradeAnswerWithAI(q, userAnswer) {
 const plainQuestion = q.text
 .replace(/<code>(.*?)<\/code>/g, '`$1`')
@@ -424,6 +470,16 @@ const plainQuestion = q.text
 .replace(/<[^>]+>/g, '')
 .replace(/\s+/g, ' ')
 .trim();
+
+// Créer une clé de cache unique
+const cacheKey = simpleHash(plainQuestion + userAnswer);
+
+// Vérifier le cache
+if (aiCache.has(cacheKey)) {
+console.log('Cache hit for question');
+return aiCache.get(cacheKey);
+}
+
 const prompt = `You are an expert automatic grader for a French high school computer science exam (NSI Terminale, BNS 2026).
 
 QUESTION (${q.type === 'code' ? 'Python code' : 'written explanation'}):
@@ -442,23 +498,35 @@ GRADING RULES:
 - Reject clearly wrong, empty, or unrelated answers.
 - Be fair but rigorous.
 
-OUTPUT FORMAT:
-You must respond with a valid JSON object and absolutely nothing else. No markdown formatting, no backticks, just the raw JSON.
-The JSON object must have exactly two keys:
-1. "correct": a boolean (true if correct, false if incorrect).
-2. "feedback": a string containing a highly detailed, straight-to-the-point, no-BS explanation of the mistakes made by the student in French. If the answer is correct, briefly confirm why it's correct. Point out exact lines, logic errors, syntax issues, or missing concepts. Be rigorous, technical, and direct. Do not use pleasantries.
+Respond with EXACTLY ONE WORD: YES if correct, NO if incorrect.
+Do NOT add any explanation, punctuation, or additional text. Just YES or NO.`;
 
-Example JSON:
-{"correct": false, "feedback": "Erreur ligne 3 : la boucle while ne s'arrête pas correctement car la condition d'arrêt omet de vérifier l'index. De plus, l'indentation de la ligne 5 est incorrecte, ce qui sort l'instruction return de la fonction. Il manque également la gestion du cas où la liste est vide."}`;
+let maxRetries = 5;
+let attempt = 0;
+
+while (attempt < maxRetries) {
 try {
 if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
 throw new Error('Puter AI not available');
 }
+
+// Sélectionner un modèle en rotation
+const selectedModel = AI_MODELS[modelRotationIndex % AI_MODELS.length];
+modelRotationIndex++;
+
+// Ajouter un délai aléatoire pour éviter le rate limiting
+const delay = getRandomDelay();
+await new Promise(resolve => setTimeout(resolve, delay));
+
+console.log(`Using model: ${selectedModel}, attempt ${attempt + 1}`);
+
 const timeout = new Promise((_, reject) =>
 setTimeout(() => reject(new Error('AI grading timeout')), 45000)
 );
-const aiCall = puter.ai.chat(prompt);
+
+const aiCall = puter.ai.chat(prompt, { model: selectedModel });
 const response = await Promise.race([aiCall, timeout]);
+
 let text = '';
 if (typeof response === 'string') {
 text = response;
@@ -469,38 +537,53 @@ text = response.text;
 } else {
 text = String(response);
 }
-try {
-const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-const parsed = JSON.parse(cleanedText);
-if (typeof parsed.correct === 'boolean' && typeof parsed.feedback === 'string') {
-return { correct: parsed.correct, feedback: parsed.feedback, source: 'ai' };
-}
-} catch (e) {
-const jsonMatch = text.match(/\{[\s\S]*?"correct"[\s\S]*?\}/);
-if (jsonMatch) {
-try {
-const parsed = JSON.parse(jsonMatch[0]);
-if (typeof parsed.correct === 'boolean' && typeof parsed.feedback === 'string') {
-return { correct: parsed.correct, feedback: parsed.feedback, source: 'ai' };
-}
-} catch (e2) {}
-}
-}
+
 const upper = text.toUpperCase().trim();
-const isYes = /\bYES\b/.test(upper) || /\bTRUE\b/.test(upper);
-const isNo = /\bNO\b/.test(upper) || /\bFALSE\b/.test(upper);
+const isYes = /\bYES\b/.test(upper);
+const isNo = /\bNO\b/.test(upper);
+
+let result;
 if (isYes && !isNo) {
-return { correct: true, feedback: 'Réponse correcte.', source: 'ai' };
+result = { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
 } else if (isNo) {
-return { correct: false, feedback: 'Réponse incorrecte. (Détails non fournis par l\'IA)', source: 'ai' };
+result = { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
+} else {
+throw new Error('Unclear AI response');
 }
-console.warn('AI returned unclear response:', text);
-return fallbackGrade(q, userAnswer);
+
+// Mettre en cache le résultat
+aiCache.set(cacheKey, result);
+
+// Limiter la taille du cache
+if (aiCache.size > 100) {
+const firstKey = aiCache.keys().next().value;
+aiCache.delete(firstKey);
+}
+
+return result;
+
 } catch (err) {
-console.warn('AI grading failed, using fallback:', err);
+attempt++;
+console.warn(`AI grading attempt ${attempt} failed:`, err.message);
+
+if (attempt >= maxRetries) {
+console.warn('Max retries reached, using fallback');
 return fallbackGrade(q, userAnswer);
 }
+
+// Backoff exponentiel
+const backoffDelay = getBackoffDelay(attempt);
+console.log(`Waiting ${backoffDelay}ms before retry...`);
+await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+// Changer de modèle pour la prochaine tentative
+modelRotationIndex++;
 }
+}
+
+return fallbackGrade(q, userAnswer);
+}
+
 function fallbackGrade(q, userAnswer) {
 if (!userAnswer || userAnswer.trim().length < 5) {
 return { correct: false, feedback: 'Réponse trop courte ou vide. (Fallback mode)', source: 'fallback' };
@@ -518,6 +601,7 @@ const feedback = correct
 : `[Fallback] Seulement ${hits}/${keywords.length} mots-clés.`;
 return { correct, feedback, source: 'fallback' };
 }
+
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
 const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 function escapeHtml(s){
@@ -802,16 +886,16 @@ Tests : <code>decodage_rle([2, 255, 1, 0, 3, 255]) == [255, 255, 0, 255, 255, 25
 <code>decodage_rle([4, 85]) == [85, 85, 85, 85]</code>`,
 hint:"La liste RLE est structurée en paires (compte, valeur). Parcourir de 2 en 2 avec range(0, len, 2).",
 starter:`def decodage_rle(liste_rle):
-"""Renvoie la liste d'octets obtenue à partir de la liste liste_rle obtenue
-par compression RLE"""
-pass  # A VOUS D'ÉCRIRE LE CODE LA FONCTION`,
+    """Renvoie la liste d'octets obtenue à partir de la liste liste_rle obtenue
+    par compression RLE"""
+    pass  # A VOUS D'ÉCRIRE LE CODE LA FONCTION`,
 answer_keywords:["range(0,","range(liste_rle","append","for k in range","return lst","lst = []"],
 correction:`def decodage_rle(liste_rle):
-lst = []
-for i in range(0, len(liste_rle), 2):
-for k in range(liste_rle[i]):
-lst.append(liste_rle[i+1])
-return lst`
+    lst = []
+    for i in range(0, len(liste_rle), 2):
+        for k in range(liste_rle[i]):
+            lst.append(liste_rle[i+1])
+    return lst`
 },
 {id:"1-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> Utiliser <code>encoder_decoder_image</code> sur <code>bac_nsi_32.png</code> et <code>bac_nsi_256.png</code>. Décrire la différence et expliquer pourquoi l'image 256 pose problème.`,
@@ -829,31 +913,31 @@ Cause : une ligne de 256 pixels identiques → le "compte" dépasse 255 (max d'u
 text:`<strong>Question 4 :</strong> Modifier <code>codage_rle</code> pour limiter chaque "compte" à 255 maximum.`,
 hint:"Dans la boucle while interne, ajouter la condition k < 255.",
 starter:`def codage_rle(liste_octets):
-"""Renvoie une liste d'octets obtenue par compression RLE"""
-liste_rle = []
-i = 0
-while i < len(liste_octets):
-valeur = liste_octets[i]
-occ = 1
-while i + occ < len(liste_octets) and liste_octets[i + occ] == valeur:
-occ += 1
-liste_rle.append(occ)
-liste_rle.append(valeur)
-i += occ
-return liste_rle`,
+    """Renvoie une liste d'octets obtenue par compression RLE"""
+    liste_rle = []
+    i = 0
+    while i < len(liste_octets):
+        valeur = liste_octets[i]
+        occ = 1
+        while i + occ < len(liste_octets) and liste_octets[i + occ] == valeur:
+            occ += 1
+        liste_rle.append(occ)
+        liste_rle.append(valeur)
+        i += occ
+    return liste_rle`,
 answer_keywords:["occ < 255","255","and occ","k < 255","min(","< 255"],
 correction:`def codage_rle(liste_octets):
-liste_rle = []
-i = 0
-while i < len(liste_octets):
-valeur = liste_octets[i]
-occ = 1
-while i + occ < len(liste_octets) and liste_octets[i + occ] == valeur and occ < 255:
-occ += 1
-liste_rle.append(occ)
-liste_rle.append(valeur)
-i += occ
-return liste_rle`
+    liste_rle = []
+    i = 0
+    while i < len(liste_octets):
+        valeur = liste_octets[i]
+        occ = 1
+        while i + occ < len(liste_octets) and liste_octets[i + occ] == valeur and occ < 255:
+            occ += 1
+        liste_rle.append(occ)
+        liste_rle.append(valeur)
+        i += occ
+    return liste_rle`
 }
 ]
 },
@@ -866,78 +950,80 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>salaire_moyen_condition(employes, champ, valeur)</code>. Renvoyer <code>None</code> si aucun employé ne correspond.`,
 hint:"Utiliser un compteur n et une somme s. Vérifier n == 0 avant la division.",
 starter:`def salaire_moyen_condition(employes, champ, valeur):
-'''Renvoie le salaire moyen des employes ayant val comme valeur associée
-au champ donné en argument.
-Si le nombre d'employés considéré est nul, cette fonction renvoie None'''
-pass  # à implémenter`,
+    '''Renvoie le salaire moyen des employes ayant val comme valeur associée
+    au champ donné en argument.
+    Si le nombre d'employés considéré est nul, cette fonction renvoie None'''
+    pass  # à implémenter`,
 answer_keywords:["employe[champ]","== valeur","s +=","salaire","n == 0","None","return s"],
 correction:`def salaire_moyen_condition(employes, champ, valeur):
-s = 0
-n = 0
-for employe in employes:
-if employe[champ] == valeur:
-s += employe['salaire']
-n += 1
-if n == 0:
-return None
-return s / n`
+    s = 0
+    n = 0
+    for employe in employes:
+        if employe[champ] == valeur:
+            s += employe['salaire']
+            n += 1
+    if n == 0:
+        return None
+    return s / n`
 },
 {id:"2-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>effectif_par_sexe(employes)</code> qui renvoie <code>{'F': nb_femmes, 'M': nb_hommes}</code>.`,
 hint:"Compter nf et nh en parcourant la liste.",
 starter:`def effectif_par_sexe(employes):
-'''Renvoie un dictionnaire ayant deux clés 'F' et 'M'
-associée respectivement au nombre d'employées femmes et au
-nombre d'employés hommes dans les données en arguments.'''
-pass  # à implémenter`,
+    '''Renvoie un dictionnaire ayant deux clés 'F' et 'M'
+    associée respectivement au nombre d'employées femmes et au
+    nombre d'employés hommes dans les données en arguments.'''
+    pass  # à implémenter`,
 answer_keywords:["nf","nh","sexe","'F'","'M'","nf += 1","nh += 1","return"],
 correction:`def effectif_par_sexe(employes):
-nf, nh = 0, 0
-for employe in employes:
-if employe['sexe'] == 'F':
-nf += 1
-else:
-nh += 1
-return {'F':nf, 'M':nh}`
+    nf, nh = 0, 0
+    for employe in employes:
+        if employe['sexe'] == 'F':
+            nf += 1
+        else:
+            nh += 1
+    return {'F':nf, 'M':nh}`
 },
 {id:"2-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> La fonction <code>calcul_ecart_sexe</code> est incorrecte. Identifier les deux bugs et proposer une version corrigée.`,
 hint:"(1) employes passé entre guillemets → NameError. (2) le calcul retourne une différence, pas un pourcentage.",
 starter:`# La fonction existante (bugguée) :
 def calcul_ecart_sexe(employes):
-moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
-moy_f = salaire_moyen_condition('employes', 'sexe', 'F')  # BUG 1
-return moy_h - moy_f  # BUG 2
+    moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
+    moy_f = salaire_moyen_condition('employes', 'sexe', 'F')  # BUG 1
+    return moy_h - moy_f  # BUG 2
+
 # Votre version corrigée ici :`,
 answer_keywords:["/ moy_h","* 100","moy_h - moy_f","None","guillemets","is None","return"],
 correction:`Bug 1 : 'employes' entre guillemets → NameError
 Bug 2 : retourne (moy_h - moy_f) au lieu de (moy_h - moy_f) / moy_h * 100
 def calcul_ecart_sexe(employes):
-if effectif_par_sexe(employes)['F'] == 0 or effectif_par_sexe(employes)['M'] == 0:
-return None
-moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
-moy_f = salaire_moyen_condition(employes, 'sexe', 'F')
-return (moy_h - moy_f) / moy_h * 100`
+    if effectif_par_sexe(employes)['F'] == 0 or effectif_par_sexe(employes)['M'] == 0:
+        return None
+    moy_h = salaire_moyen_condition(employes, 'sexe', 'M')
+    moy_f = salaire_moyen_condition(employes, 'sexe', 'F')
+    return (moy_h - moy_f) / moy_h * 100`
 },
 {id:"2-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Tester <code>salaire_par_proximite</code> et identifier le problème dans <code>distance</code>. Proposer une version corrigée.`,
 hint:"La fonction distance originale inclut le champ 'sexe' dans le calcul → biais artificiel.",
 starter:`# La fonction existante (biaisée) :
 def distance(e1, e2):
-'''Renvoie la mesure de distance entre deux personnes.'''
-s = 0
-s = s + (sexe_vers_entier(e1) - sexe_vers_entier(e2))**2  # PROBLÈME
-s = s + (e1['experience'] - e2['experience'])**2
-s = s + (e1['etudes'] - e2['etudes'])**2
-return sqrt(s)
+    '''Renvoie la mesure de distance entre deux personnes.'''
+    s = 0
+    s = s + (sexe_vers_entier(e1) - sexe_vers_entier(e2))**2  # PROBLÈME
+    s = s + (e1['experience'] - e2['experience'])**2
+    s = s + (e1['etudes'] - e2['etudes'])**2
+    return sqrt(s)
+
 # Votre version corrigée (sans le biais sexe) :`,
 answer_keywords:["sexe","experience","etudes","sqrt","sans","biais","pas inclure","supprimer"],
 correction:`Problème : la fonction distance inclut 'sexe', ce qui biaise les voisins.
 def distance(e1, e2):
-s = 0
-s = s + (e1['experience'] - e2['experience'])**2
-s = s + (e1['etudes'] - e2['etudes'])**2
-return sqrt(s)`
+    s = 0
+    s = s + (e1['experience'] - e2['experience'])**2
+    s = s + (e1['etudes'] - e2['etudes'])**2
+    return sqrt(s)`
 }
 ]
 },
@@ -952,12 +1038,12 @@ hint:"Commencer par tester % 400 == 0 (True), puis % 4 == 0 and % 100 != 0.",
 starter:`# Écrire le code de la fonction est_bissextile de la question 1`,
 answer_keywords:["% 400","% 100","% 4","True","False","return"],
 correction:`def est_bissextile(n):
-if n % 400 == 0:
-return True
-elif n % 4 == 0 and n % 100 != 0:
-return True
-else:
-return False`
+    if n % 400 == 0:
+        return True
+    elif n % 4 == 0 and n % 100 != 0:
+        return True
+    else:
+        return False`
 },
 {id:"3-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>determiner_phase(n)</code> (n ∈ [1,28] → numéro de phase 1-4). Utiliser une assertion.`,
@@ -965,41 +1051,42 @@ hint:"assert n >= 1 and n <= 28, puis enchaîner les if/elif.",
 starter:`# Écrire le code de la fonction determiner_phase de la question 2`,
 answer_keywords:["assert","<= 28",">= 1","if n <= 5","elif n <= 13","elif n == 14","return 1","return 2","return 3","return 4"],
 correction:`def determiner_phase(n):
-assert n <= 28 and n >= 1
-if n <= 5:
-return 1
-elif n <= 13:
-return 2
-elif n == 14:
-return 3
-else:
-return 4`
+    assert n <= 28 and n >= 1
+    if n <= 5:
+        return 1
+    elif n <= 13:
+        return 2
+    elif n == 14:
+        return 3
+    else:
+        return 4`
 },
 {id:"3-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Compléter <code>test_ajouter_jours</code> avec ≥ 3 tests supplémentaires (changement de mois, d'année, février bissextile).`,
 hint:"Tester : fin août → septembre, 31 déc → 1er jan, fév bissextile 2024.",
 starter:`def test_ajouter_jours():
-assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
-# Ajouter ici vos tests supplémentaires`,
+    assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
+    # Ajouter ici vos tests supplémentaires`,
 answer_keywords:["assert ajouter_jours","(1, 1, 2026)","(1, 9, 2025)","31, 12","28, 2","2024"],
 correction:`def test_ajouter_jours():
-assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
-assert ajouter_jours((29, 8, 2025), 3) == (1, 9, 2025)   # changement de mois
-assert ajouter_jours((31, 12, 2025), 1) == (1, 1, 2026)  # changement d'année
-assert ajouter_jours((28, 2, 2024), 3) == (2, 3, 2024)   # fév bissextile
-assert ajouter_jours((28, 2, 2025), 3) == (3, 3, 2025)   # fév non-bissextile`
+    assert ajouter_jours((7, 9, 2025), 3) == (10, 9, 2025)
+    assert ajouter_jours((29, 8, 2025), 3) == (1, 9, 2025)   # changement de mois
+    assert ajouter_jours((31, 12, 2025), 1) == (1, 1, 2026)  # changement d'année
+    assert ajouter_jours((28, 2, 2024), 3) == (2, 3, 2024)   # fév bissextile
+    assert ajouter_jours((28, 2, 2025), 3) == (3, 3, 2025)   # fév non-bissextile`
 },
 {id:"3-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> La fonction <code>calendrier_cycles</code> produit une erreur. L'identifier et proposer une correction.`,
 hint:"La ligne date = str(annee)+str(mois)+str(jour) ne complète pas avec un zéro les mois/jours < 10.",
 starter:`# La ligne problématique :
 date = str(annee) + str(mois) + str(jour)
+
 # Exemple : pour le 05 mars 2025, produit "202535" au lieu de "20250305"
 # Votre correction :`,
 answer_keywords:[":02d","format","zfill","02","f\"","f'","'{:02d}'.format"],
 correction:`Problème : str(mois) donne "3" au lieu de "03" → format AAAAMMJJ invalide.
 Correction :
-date = str(annee) + '{:02d}'.format(mois) + '{:02d}'.format(jour)
+    date = str(annee) + '{:02d}'.format(mois) + '{:02d}'.format(jour)
 Ou : date = f"{annee}{mois:02d}{jour:02d}"`
 }
 ]
@@ -1012,42 +1099,43 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>croissance_moyenne(plantes)</code>. Renvoyer <code>None</code> si la liste est vide.`,
 hint:"Vérifier if len(plantes) == 0, sinon sommer plante.croissance.",
 starter:`def croissance_moyenne(plantes):
-pass`,
+    pass`,
 answer_keywords:["plante.croissance","len(plantes)","None","return s","/ len","== None"],
 correction:`def croissance_moyenne(plantes):
-if plantes == []:
-return None
-s = 0
-for plante in plantes:
-s += plante.croissance
-return s / len(plantes)`
+    if plantes == []:
+        return None
+    s = 0
+    for plante in plantes:
+        s += plante.croissance
+    return s / len(plantes)`
 },
 {id:"4-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>dictionnaire_mesure(plantes, mesures)</code> → <code>{nom_plante: [liste_mesures]}</code>. Plante sans mesure → liste vide.`,
 hint:"Parcourir d'abord les mesures, puis ajouter les plantes sans mesures.",
 starter:`def dictionnaire_mesure(plantes, mesures):
-pass`,
+    pass`,
 answer_keywords:["m['plante']","d[","append","p.nom","[]","return d","not in d"],
 correction:`def dictionnaire_mesure(plantes, mesures):
-d = {}
-for m in mesures:
-if m['plante'] in d:
-d[m['plante']].append(m)
-else:
-d[m['plante']] = [m]
-for p in plantes:
-if p.nom not in d:
-d[p.nom] = []
-return d`
+    d = {}
+    for m in mesures:
+        if m['plante'] in d:
+            d[m['plante']].append(m)
+        else:
+            d[m['plante']] = [m]
+    for p in plantes:
+        if p.nom not in d:
+            d[p.nom] = []            
+    return d`
 },
 {id:"4-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> Exécuter <code>test_purger()</code>. Identifier la source de l'erreur dans <code>purger_mesures_extremes</code>.`,
 hint:"Que se passe-t-il quand on appelle remove() sur une liste qu'on parcourt avec for ?",
 starter:`# La fonction bugguée :
 def purger_mesures_extremes(liste_mesures):
-for mesure in liste_mesures:
-if mesure['temperature'] < 20 or mesure['temperature'] > 25:
-liste_mesures.remove(mesure)
+    for mesure in liste_mesures:
+        if mesure['temperature'] < 20 or mesure['temperature'] > 25:
+            liste_mesures.remove(mesure)
+
 # Analyser le bug ici :`,
 answer_keywords:["remove","boucle","parcours","décalage","modifie","suppression","sauté","for"],
 correction:`Bug : remove() modifie la liste pendant la boucle "for mesure in liste_mesures".
@@ -1057,20 +1145,20 @@ Quand on supprime un élément, les suivants se décalent → certains sont saut
 text:`<strong>Question 4 :</strong> Proposer une version corrigée de <code>purger_mesures_extremes</code>.`,
 hint:"Parcourir une copie de la liste avec .copy().",
 starter:`def purger_mesures_extremes(liste_mesures):
-'''
-Supprime de la liste toutes les mesures dont la température
-n'est pas comprise entre 20 et 25°C inclus.
-'''
-for mesure in liste_mesures:
-if mesure['temperature'] < 20 or mesure['temperature'] > 25:
-liste_mesures.remove(mesure)`,
+    '''
+    Supprime de la liste toutes les mesures dont la température 
+    n'est pas comprise entre 20 et 25°C inclus.
+    '''
+    for mesure in liste_mesures:
+        if mesure['temperature'] < 20 or mesure['temperature'] > 25:
+            liste_mesures.remove(mesure)`,
 answer_keywords:["copy()","copie","for mesure in","< 20","or","20 <=","<= 25","remove","return"],
 correction:`def purger_mesures_extremes(liste_mesures):
-copy_liste_mesures = liste_mesures.copy()
-for mesure in copy_liste_mesures:
-if mesure['temperature'] < 20 or mesure['temperature'] > 25:
-liste_mesures.remove(mesure)
-return liste_mesures`
+    copy_liste_mesures = liste_mesures.copy()
+    for mesure in copy_liste_mesures:
+        if mesure['temperature'] < 20 or mesure['temperature'] > 25:
+            liste_mesures.remove(mesure)
+    return liste_mesures`
 }
 ]
 },
@@ -1082,59 +1170,60 @@ questions:[
 text:`<strong>Question 1 :</strong> Compléter <code>total_simple(empreinte)</code> qui charge un JSON et renvoie la somme de toutes les valeurs.`,
 hint:"d = chargement_json(empreinte), puis for key in d: total += d[key].",
 starter:`def total_simple(empreinte):
-"""Fonction qui renvoie l'empreinte carbone totale d'un dictionnaire associant
-une empreinte carbone à des noms de catégories"""
-pass`,
+    """Fonction qui renvoie l'empreinte carbone totale d'un dictionnaire associant
+    une empreinte carbone à des noms de catégories"""
+    pass`,
 answer_keywords:["d[key]","total +=","chargement_json","return total","d.values()"],
 correction:`def total_simple(empreinte):
-d = chargement_json(empreinte)
-total = 0
-for key in d:
-total += d[key]
-return total`
+    d = chargement_json(empreinte)
+    total = 0
+    for key in d:
+        total += d[key]
+    return total`
 },
 {id:"5-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire la fonction <strong>récursive</strong> <code>total_rec(empreinte)</code> pour les dicts éventuellement imbriqués.`,
 hint:"Si la valeur est un dictionnaire, appeler total_rec récursivement.",
 starter:`def total_rec(empreinte):
-"""Fonction récursive qui renvoie l'empreinte carbone totale représentée
-par un dictionnaire dont les valeurs peuvent aussi être des dictionnaires"""
-pass`,
+    """Fonction récursive qui renvoie l'empreinte carbone totale représentée
+    par un dictionnaire dont les valeurs peuvent aussi être des dictionnaires"""
+    pass`,
 answer_keywords:["total_rec","est_dictionnaire","total +=","for key","return total","empreinte[key]"],
 correction:`def total_rec(empreinte):
-total = 0
-for key in empreinte:
-if not est_dictionnaire(empreinte[key]):
-total += empreinte[key]
-else:
-total += total_rec(empreinte[key])
-return total`
+    total = 0
+    for key in empreinte:
+        if not est_dictionnaire(empreinte[key]):
+            total += empreinte[key]
+        else:
+            total += total_rec(empreinte[key])
+    return total`
 },
 {id:"5-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> <code>alerte_valeur_aberrante</code> ne détecte pas toutes les valeurs > limite. Expliquer l'erreur et proposer une correction.`,
 hint:"Le return dans la récursion arrête prématurément le parcours.",
 starter:`# La fonction bugguée :
 def alerte_valeur_aberrante(empreinte, limite):
-for categorie, valeur in empreinte.items():
-if est_dictionnaire(valeur):
-return alerte_valeur_aberrante(valeur, limite)  # BUG : return prématuré
-else:
-if valeur > limite:
-return True
-return False
+    for categorie, valeur in empreinte.items():
+        if est_dictionnaire(valeur):
+            return alerte_valeur_aberrante(valeur, limite)  # BUG : return prématuré
+        else:
+            if valeur > limite:
+                return True
+    return False
+
 # Analyser et corriger ici :`,
 answer_keywords:["valeur_aberrante","or","return True","parcours","complet","arrête","prématurément"],
 correction:`Problème : return prématuré dans la boucle récursive → toutes les clés non explorées.
 Correction :
 def alerte_valeur_aberrante(empreinte, limite):
-valeur_aberrante = False
-for categorie, valeur in empreinte.items():
-if est_dictionnaire(valeur):
-valeur_aberrante = valeur_aberrante or alerte_valeur_aberrante(valeur, limite)
-else:
-if valeur > limite:
-valeur_aberrante = True
-return valeur_aberrante`
+    valeur_aberrante = False
+    for categorie, valeur in empreinte.items():
+        if est_dictionnaire(valeur):
+            valeur_aberrante = valeur_aberrante or alerte_valeur_aberrante(valeur, limite)
+        else:
+            if valeur > limite:
+                valeur_aberrante = True
+    return valeur_aberrante`
 },
 {id:"5-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Écrire <code>test_alerte_valeur_aberrante()</code> avec ≥ 4 tests : dict simple sans/avec aberrante, dict imbriqué sans/avec aberrante.`,
@@ -1142,14 +1231,14 @@ hint:"Utiliser des dicts avec valeurs connues et limite = 20.",
 starter:`# Écrire ci-dessous la fonction test_alerte_valeur_aberrante`,
 answer_keywords:["assert alerte_valeur_aberrante","== False","== True","imbriqué","{'a1'"],
 correction:`def test_alerte_valeur_aberrante():
-dico1 = {'a': 15, 'b': 12, 'c': 14, 'd': 8}
-assert alerte_valeur_aberrante(dico1, 20) == False
-dico2 = {'a': 25, 'b': 12, 'c': 14, 'd': 8}
-assert alerte_valeur_aberrante(dico2, 20) == True
-dico3 = {'a': {'a1': 25, 'a2': 4}, 'b': 12}
-assert alerte_valeur_aberrante(dico3, 20) == True
-dico4 = {'a': {'a1': 5, 'a2': 4}, 'b': 12}
-assert alerte_valeur_aberrante(dico4, 20) == False`
+    dico1 = {'a': 15, 'b': 12, 'c': 14, 'd': 8}
+    assert alerte_valeur_aberrante(dico1, 20) == False
+    dico2 = {'a': 25, 'b': 12, 'c': 14, 'd': 8}
+    assert alerte_valeur_aberrante(dico2, 20) == True
+    dico3 = {'a': {'a1': 25, 'a2': 4}, 'b': 12}
+    assert alerte_valeur_aberrante(dico3, 20) == True
+    dico4 = {'a': {'a1': 5, 'a2': 4}, 'b': 12}
+    assert alerte_valeur_aberrante(dico4, 20) == False`
 }
 ]
 },
@@ -1161,59 +1250,61 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>smoothie_possible(self, nom_smoothie)</code> → True si tous les fruits sont disponibles.`,
 hint:"Parcourir les fruits du smoothie, vérifier si chaque fruit est in self.liste_fruits_disponibles.",
 starter:`##### QUESTION 1 #####
-def smoothie_possible(self, nom_smoothie):
-"""Retourne True si le smoothie peut être préparé avec les fruits disponibles, False sinon."""
-pass  # à remplacer par le code la méthode`,
+    def smoothie_possible(self, nom_smoothie):
+        """Retourne True si le smoothie peut être préparé avec les fruits disponibles, False sinon."""
+        pass  # à remplacer par le code la méthode`,
 answer_keywords:["for fruit","db_smoothies","liste_fruits_disponibles","return False","return True","not in"],
 correction:`def smoothie_possible(self, nom_smoothie):
-for fruit in self.db_smoothies[nom_smoothie]:
-if fruit not in self.liste_fruits_disponibles:
-return False
-return True`
+    for fruit in self.db_smoothies[nom_smoothie]:
+        if fruit not in self.liste_fruits_disponibles:
+            return False
+    return True`
 },
 {id:"6-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>liste_smoothies_possibles(self)</code> → liste de tous les smoothies réalisables.`,
 hint:"Parcourir self.db_smoothies et appeler smoothie_possible pour chaque.",
 starter:`##### QUESTION 2 #####
-def liste_smoothies_possibles(self):
-"""Retourne la liste des smoothies pouvant être préparés avec les fruits disponibles."""
-pass  # à remplacer par le code la méthode`,
+    def liste_smoothies_possibles(self):
+        """Retourne la liste des smoothies pouvant être préparés avec les fruits disponibles."""
+        pass  # à remplacer par le code la méthode`,
 answer_keywords:["possibles","for smoothie","smoothie_possible","append","return possibles"],
 correction:`def liste_smoothies_possibles(self):
-possibles = []
-for smoothie in self.db_smoothies:
-if self.smoothie_possible(smoothie):
-possibles.append(smoothie)
-return possibles`
+    possibles = []
+    for smoothie in self.db_smoothies:
+        if self.smoothie_possible(smoothie):
+            possibles.append(smoothie)
+    return possibles`
 },
 {id:"6-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Compléter <code>test_score_proximite</code>. score_proximite(sm1, sm2) = nombre de fruits communs.`,
 hint:"Créer b = Boutique_smoothie([...]) et appeler b.score_proximité().",
 starter:`##### QUESTION 3 #####
+
 def test_score_proximité():
-# À compléter
-pass`,
+    # À compléter
+    pass`,
 answer_keywords:["== 0","== 1","== 2","== 3","score_proximité","Boutique_smoothie","assert"],
 correction:`def test_score_proximité():
-b = Boutique_smoothie(['Mangue', 'Ananas', 'Banane', 'Fraise'])
-assert b.score_proximité('Tropical', 'Rouge') == 0
-assert b.score_proximité('Agrume', 'Tropical citron') == 1
-assert b.score_proximité('Tropical', 'Tropical citron') == 2
-assert boutique.score_proximité('Tropical', 'Tropical') == 3`
+    b = Boutique_smoothie(['Mangue', 'Ananas', 'Banane', 'Fraise'])
+    assert b.score_proximité('Tropical', 'Rouge') == 0
+    assert b.score_proximité('Agrume', 'Tropical citron') == 1
+    assert b.score_proximité('Tropical', 'Tropical citron') == 2
+    assert boutique.score_proximité('Tropical', 'Tropical') == 3`
 },
 {id:"6-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> <code>plus_proche_possible</code> renvoie le smoothie lui-même. Identifier le bug et corriger.`,
 hint:"La méthode compare le smoothie avec lui-même (score max = 3). Il faut l'exclure.",
 starter:`# La fonction bugguée :
-def plus_proche_possible(self, nom_smoothie_ref):
-max_communs = 0
-smoothie_proche = None
-for nom_smoothie in self.db_smoothies:
-nb_communs = self.score_proximité(nom_smoothie_ref, nom_smoothie)  # COMPARE AVEC LUI-MÊME
-if nb_communs > max_communs:
-max_communs = nb_communs
-smoothie_proche = nom_smoothie
-return smoothie_proche
+    def plus_proche_possible(self, nom_smoothie_ref):
+        max_communs = 0
+        smoothie_proche = None
+        for nom_smoothie in self.db_smoothies:
+            nb_communs = self.score_proximité(nom_smoothie_ref, nom_smoothie)  # COMPARE AVEC LUI-MÊME
+            if nb_communs > max_communs:
+                max_communs = nb_communs
+                smoothie_proche = nom_smoothie
+        return smoothie_proche
+
 # Analyser et corriger ici :`,
 answer_keywords:["!= nom_smoothie_ref","différent","référence","même smoothie","nom_smoothie !="],
 correction:`Bug : ne filtre pas le smoothie de référence → score max = 3 avec lui-même.
@@ -1244,101 +1335,109 @@ c3 = Coccinelle('male', 10, 2)
 cocci = [c1, c2, c3]
 proies = 200
 for k in range(5):
-cocci, proies = evolution(cocci, proies)
-print('jour : ', k+1)
-print('nombre de coccinelles :', len(cocci))
-print('nombre de proies :', proies)`
+    cocci, proies = evolution(cocci, proies)
+    print('jour : ', k+1)
+    print('nombre de coccinelles :', len(cocci))
+    print('nombre de proies :', proies)`
 },
 {id:"7-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>simulation_simple(population, nb_proies)</code> : simule jusqu'à 30 jours, s'arrête si population=0 ou proies=0. Renvoie (len(population), nb_proies, nb_jours).`,
 hint:"Boucle for k in range(30). Vérifier if len(population)==0 or nb_proies==0.",
 starter:`def simulation_simple(population, nb_proies):
-pass`,
+    pass`,
 answer_keywords:["for k in range(30)","evolution","len(population) == 0","nb_proies == 0","return"],
 correction:`def simulation_simple(population, nb_proies):
-for k in range(30):
-population, nb_proies = evolution(population, nb_proies)
-if len(population) == 0:
-return (len(population), nb_proies, k+1)
-if nb_proies == 0:
-return (len(population), nb_proies, k+1)
-return (len(population), nb_proies, k+1)`
+    for k in range(30):
+        population, nb_proies = evolution(population, nb_proies)
+        if len(population) == 0:
+            return (len(population), nb_proies, k+1)
+        if nb_proies == 0:
+            return (len(population), nb_proies, k+1)
+    return (len(population), nb_proies, k+1)`
 },
 {id:"7-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Documenter la méthode <code>chasser</code> avec sa docstring et des commentaires explicatifs sur chaque étape.`,
 hint:"Commenter : calcul ratio, choix selon seuil (>20, >10, sinon), mise à jour nutrition.",
 starter:`def chasser(self, nb_proies, nb_coccinelles):
-if nb_coccinelles == 0:
-return nb_proies
-proies_par_cocci = nb_proies / nb_coccinelles
-if proies_par_cocci > 20:
-consomme = random.randint(12, 20)
-elif proies_par_cocci > 10:
-consomme = random.randint(8, 15)
-else:
-consomme = random.randint(3, 8)
-consomme = min(consomme, nb_proies)
-if consomme >= 10:
-self.niv_nutrition += 1
-else:
-self.niv_nutrition = max(0, self.niv_nutrition - 1)
-return nb_proies - consomme`,
+    if nb_coccinelles == 0:
+        return nb_proies
+
+    proies_par_cocci = nb_proies / nb_coccinelles
+
+    if proies_par_cocci > 20:
+        consomme = random.randint(12, 20)
+    elif proies_par_cocci > 10:
+        consomme = random.randint(8, 15)
+    else:
+        consomme = random.randint(3, 8)
+
+    consomme = min(consomme, nb_proies)
+
+    if consomme >= 10:
+        self.niv_nutrition += 1
+    else:
+        self.niv_nutrition = max(0, self.niv_nutrition - 1)
+
+    return nb_proies - consomme`,
 answer_keywords:["proies_par_cocci","nb_proies / nb_coccinelles","random.randint","niv_nutrition","min(consomme","return nb_proies","docstring","'''"],
 correction:`def chasser(self, nb_proies, nb_coccinelles):
-'''Renvoie le nombre de pucerons après la chasse. Effets : met à jour niv_nutrition.'''
-if nb_coccinelles == 0:
-return nb_proies
-proies_par_cocci = nb_proies / nb_coccinelles  # ratio disponible
-if proies_par_cocci > 20:
-consomme = random.randint(12, 20)  # abondance
-elif proies_par_cocci > 10:
-consomme = random.randint(8, 15)   # suffisant
-else:
-consomme = random.randint(3, 8)    # rareté
-consomme = min(consomme, nb_proies)
-if consomme >= 10:
-self.niv_nutrition += 1
-else:
-self.niv_nutrition = max(0, self.niv_nutrition - 1)
-return nb_proies - consomme`
+    '''Renvoie le nombre de pucerons après la chasse. Effets : met à jour niv_nutrition.'''
+    if nb_coccinelles == 0:
+        return nb_proies
+    proies_par_cocci = nb_proies / nb_coccinelles  # ratio disponible
+    if proies_par_cocci > 20:
+        consomme = random.randint(12, 20)  # abondance
+    elif proies_par_cocci > 10:
+        consomme = random.randint(8, 15)   # suffisant
+    else:
+        consomme = random.randint(3, 8)    # rareté
+    consomme = min(consomme, nb_proies)
+    if consomme >= 10:
+        self.niv_nutrition += 1
+    else:
+        self.niv_nutrition = max(0, self.niv_nutrition - 1)
+    return nb_proies - consomme`
 },
 {id:"7-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Modifier <code>reproduction</code> (maturité à ≥ 20 jours) et <code>a_survecu</code> (si niv_nutrition==0 : 1/3 chance de mourir).`,
 hint:"Dans reproduction : if self.age < 20: return []. Dans a_survecu : if niv_nutrition==0 → random.randint(1,3)==1.",
 starter:`def reproduction(self):
-'''
-Une femelle avec un niveau de nutrition >= 2 engendre exactement
-deux descendants : un mâle et une femelle.
-'''
-descendants = []
-if self.sexe == "femelle" and self.niv_nutrition >= 2:
-descendants.append(Coccinelle("male", 0, 0))
-descendants.append(Coccinelle("femelle", 0, 0))
-self.niv_nutrition = 0
-return descendants
+    '''
+    Une femelle avec un niveau de nutrition >= 2 engendre exactement
+    deux descendants : un mâle et une femelle.
+    '''
+    descendants = []
+    if self.sexe == "femelle" and self.niv_nutrition >= 2:
+        descendants.append(Coccinelle("male", 0, 0))
+        descendants.append(Coccinelle("femelle", 0, 0))
+        self.niv_nutrition = 0
+
+    return descendants
+
 def a_survecu(self):
-'''
-Met à jour l'âge de la coccinelle et indique si elle est encore en vie.
-'''
-self.age = self.age + 1
-return self.age < self.esperance_de_vie`,
+    '''
+    Met à jour l'âge de la coccinelle et indique si elle est encore en vie.
+    '''
+    self.age = self.age + 1
+    return self.age < self.esperance_de_vie`,
 answer_keywords:["self.age",">=20",">= 20","femelle","niv_nutrition >= 2","random.randint(1,3)","return False"],
 correction:`def reproduction(self):
-if self.age < 20:
-return []
-descendants = []
-if self.sexe == 'femelle' and self.niv_nutrition >= 2:
-descendants.append(Coccinelle('male', 0, 0))
-descendants.append(Coccinelle('femelle', 0, 0))
-self.niv_nutrition = 0
-return descendants
+    if self.age < 20:
+        return []
+    descendants = []
+    if self.sexe == 'femelle' and self.niv_nutrition >= 2:
+        descendants.append(Coccinelle('male', 0, 0))
+        descendants.append(Coccinelle('femelle', 0, 0))
+        self.niv_nutrition = 0
+    return descendants
+
 def a_survecu(self):
-if self.niv_nutrition == 0:
-r = random.randint(1,3)
-if r == 1:
-return False
-self.age = self.age + 1
-return self.age < self.esperance_de_vie`
+    if self.niv_nutrition == 0:
+        r = random.randint(1,3)
+        if r == 1:
+            return False
+    self.age = self.age + 1
+    return self.age < self.esperance_de_vie`
 }
 ]
 },
@@ -1362,26 +1461,27 @@ starter:`# Question 2 : Conversion BCD vers Décimal
 # et l'assertion de test demandée`,
 answer_keywords:["int(","2)","part_entiere","part_decimale","100","/ 10","len(","return"],
 correction:`def convertir_BCD_vers_decimal(liste_quartets):
-part_entiere = ''
-for i in range(len(liste_quartets)-2):
-part_entiere += str(int(liste_quartets[i], 2))
-part_decimale = ''
-for i in range(len(liste_quartets)-2, len(liste_quartets)):
-part_decimale += str(int(liste_quartets[i], 2))
-partie_entiere = int(part_entiere)
-partie_decimale = int(part_decimale)/10**len(part_decimale)
-return partie_entiere + partie_decimale`
+    part_entiere = ''
+    for i in range(len(liste_quartets)-2):
+        part_entiere += str(int(liste_quartets[i], 2))
+    part_decimale = ''
+    for i in range(len(liste_quartets)-2, len(liste_quartets)):
+        part_decimale += str(int(liste_quartets[i], 2))
+    partie_entiere = int(part_entiere)
+    partie_decimale = int(part_decimale)/10**len(part_decimale)
+    return partie_entiere + partie_decimale`
 },
 {id:"8-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> <code>additionner_nombres_format_BCD</code> donne un résultat incorrect. Identifier l'appel manquant dans la boucle.`,
 hint:"Après additionner_binaire_quartets, il faut appeler corriger_BCD(somme, retenue).",
 starter:`# La boucle bugguée (ligne 20 manquante) :
 for i in range(longueur_max):
-index = longueur_max - i - 1
-somme, retenue = additionner_binaire_quartets(
-liste_quartets1[index], liste_quartets2[index], retenue)
-# LIGNE MANQUANTE ICI
-resultat.insert(0, somme)
+    index = longueur_max - i - 1
+    somme, retenue = additionner_binaire_quartets(
+        liste_quartets1[index], liste_quartets2[index], retenue)
+    # LIGNE MANQUANTE ICI
+    resultat.insert(0, somme)
+
 # Quelle est la ligne manquante ?`,
 answer_keywords:["corriger_BCD","retenue","somme, retenue =","somme =","correction"],
 correction:`Ligne manquante : somme, retenue = corriger_BCD(somme, retenue)
@@ -1391,22 +1491,22 @@ correction:`Ligne manquante : somme, retenue = corriger_BCD(somme, retenue)
 text:`<strong>Question 4 :</strong> Modifier <code>aligner_quartets(q1, q2)</code> pour compléter la liste la plus courte avec <code>'0000'</code> à gauche.`,
 hint:"while len(q1) < len(q2): q1.insert(0, '0000')",
 starter:`def aligner_quartets(q1: list, q2: list) -> tuple:
-'''
-Doit équilibrer les deux listes en ajoutant des '0000' à gauche
-de la liste la plus courte.
-'''
-return q1, q2`,
+    '''
+    Doit équilibrer les deux listes en ajoutant des '0000' à gauche 
+    de la liste la plus courte.
+    '''
+    return q1, q2`,
 answer_keywords:["len(q1)","len(q2)","insert(0","'0000'","while","return q1, q2"],
 correction:`def aligner_quartets(q1, q2):
-n1 = len(q1)
-n2 = len(q2)
-if n1 >= n2:
-while len(q1) != len(q2):
-q2.insert(0, '0000')
-else:
-while len(q1) != len(q2):
-q1.insert(0, '0000')
-return q1, q2`
+    n1 = len(q1)
+    n2 = len(q2)
+    if n1 >= n2:
+        while len(q1) != len(q2):
+            q2.insert(0, '0000')
+    else:
+        while len(q1) != len(q2):
+            q1.insert(0, '0000')   
+    return q1, q2`
 }
 ]
 },
@@ -1418,19 +1518,22 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire la méthode <code>distance(self, s)</code> de <code>Sommet</code>. Distance euclidienne en 3D.`,
 hint:"return math.sqrt((self.x-sommet.x)² + (self.y-sommet.y)² + (self.z-sommet.z)²)",
 starter:`import math
+
 class Sommet:
-def __init__(self, x, y, z):
-self.x = x
-self.y = y
-self.z = z
-#############################################################################
-# Écrire le code de la méthode distance de la question 1                    #
-#############################################################################
-def distance(self, s):
-return ((s.x-self.x)**2+(s.y-self.y)**2+(s.z-self.z)**2)**0.5`,
+    def __init__(self, x, y, z):
+        self.x = x
+        self.y = y
+        self.z = z
+
+    #############################################################################
+    # Écrire le code de la méthode distance de la question 1                    #
+    #############################################################################
+
+    def distance(self, s):
+        return ((s.x-self.x)**2+(s.y-self.y)**2+(s.z-self.z)**2)**0.5`,
 answer_keywords:["math.sqrt","self.x","self.y","self.z","**2","return"],
 correction:`def distance(self, sommet):
-return math.sqrt((self.x-sommet.x)**2 + (self.y-sommet.y)**2 + (self.z-sommet.z)**2)`
+    return math.sqrt((self.x-sommet.x)**2 + (self.y-sommet.y)**2 + (self.z-sommet.z)**2)`
 },
 {id:"9-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>sommets_adjacents(self, s1, s2)</code> dans <code>Objet3D</code> → True si les deux sommets forment une arête.`,
@@ -1438,14 +1541,15 @@ hint:"Parcourir self.faces, pour chaque face vérifier si les deux sommets y app
 starter:`#############################################################################
 # Écrire le code de la méthode sommets_adjacents de la question 2           #
 #############################################################################
-def sommets_adjacents(self, s1, s2):
-pass`,
+
+    def sommets_adjacents(self, s1, s2):
+        pass`,
 answer_keywords:["face","sommets","for","return True","return False","s1","s2"],
 correction:`def sommets_adjacents(self, s1, s2):
-for face in self.faces:
-if s1 in face.sommets and s2 in face.sommets:
-return True
-return False`
+    for face in self.faces:
+        if s1 in face.sommets and s2 in face.sommets:
+            return True
+    return False`
 },
 {id:"9-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Écrire <code>estimation_impression(self, objet)</code> de <code>Imprimante3D</code>. Formule : <code>vol_reel × remplissage / vitesse_extrusion</code>.`,
@@ -1453,19 +1557,22 @@ hint:"Utiliser objet.volume_cube_englobant() pour obtenir le volume réel.",
 starter:`#############################################################################
 # Écrire le code de la méthode estimation_impression de la question 3      #
 #############################################################################
-def estimation_impression(self, objet):
-pass`,
+
+    def estimation_impression(self, objet):
+        pass`,
 answer_keywords:["volume_cube_englobant","remplissage","vitesse_extrusion","return","/ self.vitesse"],
 correction:`def estimation_impression(self, objet):
-vol_impression = objet.volume_cube_englobant() * self.remplissage
-return vol_impression / self.vitesse_extrusion`
+    vol_impression = objet.volume_cube_englobant() * self.remplissage
+    return vol_impression / self.vitesse_extrusion`
 },
 {id:"9-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> Construire une pyramide à base carrée dans main.py. Puis analyser pourquoi <code>transformer</code> est incorrecte.`,
 hint:"transformer() modifie les sommets en place → corrompt l'objet original.",
 starter:`# À mettre dans le fichier main.py pour créer la pyramide :
+
 # objet.ajouter_sommet(...)
 # ...
+
 # Analyser le bug de transformer() ici :`,
 answer_keywords:["ajouter_sommet","ajouter_face","pyramide","copie","Objet3D()","rapport","original","modifier"],
 correction:`# Pyramide dans main.py :
@@ -1486,27 +1593,27 @@ hint:"Créer copie_objet = Objet3D(), copier faces et nom, créer de nouveaux So
 starter:`#############################################################################
 # Méthode à modifier de la question 5                                       #
 #############################################################################
-def transformer(self, rapport):
-"""
-Applique une transformation d'échelle à l'objet 3D en modifiant directement ses sommets.
-"""
-sommets = []
-for sommet in self.sommets:
-sommets.append(
-Sommet(sommet.x * rapport,
-sommet.y * rapport, sommet.z * rapport))
-self.sommets = sommets`,
+    def transformer(self, rapport):
+        """
+        Applique une transformation d'échelle à l'objet 3D en modifiant directement ses sommets.
+        """
+        sommets = []
+        for sommet in self.sommets:
+            sommets.append(
+                Sommet(sommet.x * rapport,
+                       sommet.y * rapport, sommet.z * rapport))
+        self.sommets = sommets`,
 answer_keywords:["copie_objet","Objet3D()","rapport","sommets","return copie_objet","Sommet(sommet.x"],
 correction:`def transformer(self, rapport):
-copie_objet = Objet3D()
-copie_objet.sommets = self.sommets
-copie_objet.faces = self.faces
-copie_objet.nom = self.nom
-sommets = []
-for sommet in copie_objet.sommets:
-sommets.append(Sommet(sommet.x*rapport, sommet.y*rapport, sommet.z*rapport))
-copie_objet.sommets = sommets
-return copie_objet`
+    copie_objet = Objet3D()
+    copie_objet.sommets = self.sommets
+    copie_objet.faces = self.faces
+    copie_objet.nom = self.nom
+    sommets = []
+    for sommet in copie_objet.sommets:
+        sommets.append(Sommet(sommet.x*rapport, sommet.y*rapport, sommet.z*rapport))
+    copie_objet.sommets = sommets
+    return copie_objet`
 }
 ]
 },
@@ -1519,54 +1626,55 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>total_conso(donnees, jour)</code> → consommation totale pour un jour, ou <code>None</code> si aucune mesure.`,
 hint:"Utiliser un booléen presence_mesure.",
 starter:`def total_conso(donnees, jour):
-# À compléter
-pass`,
+    # À compléter
+    pass`,
 answer_keywords:["d['jour']","== jour","chaude","froide","None","presence_mesure","return total"],
 correction:`def total_conso(donnees, jour):
-total = 0
-presence_mesure = False
-for d in donnees:
-if d['jour'] == jour:
-presence_mesure = True
-total += d['chaude'] + d['froide']
-if presence_mesure == False:
-return None
-return total`
+    total = 0
+    presence_mesure = False
+    for d in donnees:
+        if d['jour'] == jour:
+            presence_mesure = True
+            total += d['chaude'] + d['froide']
+    if presence_mesure == False:
+        return None
+    return total`
 },
 {id:"10-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>fuite_possible(donnees, jour)</code> → True si ≥ 3 mesures consécutives entre 00:00-05:00 avec conso > 0.`,
 hint:"Compteur k qui s'incrémente quand conso > 0, se remet à 0 sinon.",
 starter:`def fuite_possible(donnees, jour):
-# À compléter
-pass`,
+    # À compléter
+    pass`,
 answer_keywords:["k","chaude","froide","> 0","k >= 3","return True","k = 0"],
 correction:`def fuite_possible(donnees, jour):
-k = 0
-for d in donnees:
-if d['jour'] == jour and '00:00' <= d['heure'] <= '05:00':
-if d['chaude'] + d['froide'] > 0:
-k += 1
-if k >= 3:
-return True
-else:
-k = 0
-return False`
+    k = 0
+    for d in donnees:
+        if d['jour'] == jour and '00:00' <= d['heure'] <= '05:00':
+            if d['chaude'] + d['froide'] > 0:
+                k += 1
+                if k >= 3:
+                    return True
+            else:
+                k = 0
+    return False`
 },
 {id:"10-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> La fonction <code>lissage_conso</code> contient une erreur. Identifier et corriger.`,
 hint:"Dans le cas intermédiaire, la division est par 2 au lieu de 3.",
 starter:`# La fonction bugguée :
 def lissage_conso(valeurs):
-lisse = []
-for i in range(len(valeurs)):
-if i == 0:
-m = (valeurs[i] + valeurs[i+1]) / 2
-elif i == len(valeurs)-1:
-m = (valeurs[i-1] + valeurs[i]) / 2
-else:
-m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 2  # BUG
-lisse.append(m)
-return lisse
+    lisse = []
+    for i in range(len(valeurs)):
+        if i == 0:
+            m = (valeurs[i] + valeurs[i+1]) / 2
+        elif i == len(valeurs)-1:
+            m = (valeurs[i-1] + valeurs[i]) / 2
+        else:
+            m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 2  # BUG
+        lisse.append(m)
+    return lisse
+
 # Identifier l'erreur et corriger :`,
 answer_keywords:["/ 3","/ 2","trois","3","division","erreur","intermédiaire"],
 correction:`Erreur : division par 2 au lieu de 3 dans le cas intermédiaire.
@@ -1576,36 +1684,38 @@ Ligne corrigée : m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 3`
 text:`<strong>Question 4 :</strong> Identifier un cas limite non géré dans lissage_conso et proposer une version complète.`,
 hint:"Que se passe-t-il si la liste est vide ou a exactement 1 élément ?",
 starter:`def lissage_conso(valeurs):
-'''
-Calcule une moyenne glissante sur les valeurs.
-Pour chaque valeur, on calcule la moyenne avec ses voisins.
-'''
-lisse = []
-for i in range(len(valeurs)):
-if i == 0:
-m = (valeurs[i] + valeurs[i+1]) / 2
-elif i == len(valeurs)-1:
-m = (valeurs[i-1] + valeurs[i]) / 2
-else:
-m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 2
-lisse.append(m)
-return lisse`,
+    '''
+    Calcule une moyenne glissante sur les valeurs.
+    Pour chaque valeur, on calcule la moyenne avec ses voisins.
+    '''
+
+    lisse = []
+    for i in range(len(valeurs)):
+        if i == 0:
+            m = (valeurs[i] + valeurs[i+1]) / 2
+        elif i == len(valeurs)-1:
+            m = (valeurs[i-1] + valeurs[i]) / 2
+        else:
+            m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 2
+        lisse.append(m)
+
+    return lisse`,
 answer_keywords:["len(valeurs) == 0","len(valeurs) == 1","None","return valeurs","vide","un seul"],
 correction:`def lissage_conso(valeurs):
-if len(valeurs) == 0:
-return None
-if len(valeurs) == 1:
-return valeurs
-lisse = []
-for i in range(len(valeurs)):
-if i == 0:
-m = (valeurs[i] + valeurs[i+1]) / 2
-elif i == len(valeurs)-1:
-m = (valeurs[i-1] + valeurs[i]) / 2
-else:
-m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 3
-lisse.append(m)
-return lisse`
+    if len(valeurs) == 0:
+        return None
+    if len(valeurs) == 1:
+        return valeurs 
+    lisse = []
+    for i in range(len(valeurs)):
+        if i == 0:
+            m = (valeurs[i] + valeurs[i+1]) / 2
+        elif i == len(valeurs)-1:
+            m = (valeurs[i-1] + valeurs[i]) / 2
+        else:
+            m = (valeurs[i-1] + valeurs[i] + valeurs[i+1]) / 3
+        lisse.append(m)
+    return lisse`
 }
 ]
 },
@@ -1617,31 +1727,31 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>distance(habitat_1, habitat_2)</code> — distance euclidienne sur les 4 caractéristiques (pas <code>presence_renard</code>).`,
 hint:"sqrt((v1-v2)² + (p1-p2)² + (u1-u2)² + (d1-d2)²)",
 starter:`def distance(habitat_1, habitat_2):
-'''
-Calcule la distance euclidienne entre deux habitats.
-'''
-pass  # à remplacer par votre code`,
+    '''
+    Calcule la distance euclidienne entre deux habitats.
+    '''
+    pass  # à remplacer par votre code`,
 answer_keywords:["sqrt","vegetation","proximite_eau","densite_urbaine","disponibilite_proies","**2","return"],
 correction:`def distance(habitat_1, habitat_2):
-return sqrt((habitat_1['vegetation']-habitat_2['vegetation'])**2 +
-(habitat_1['proximite_eau']-habitat_2['proximite_eau'])**2 +
-(habitat_1['densite_urbaine']-habitat_2['densite_urbaine'])**2 +
-(habitat_1['disponibilite_proies']-habitat_2['disponibilite_proies'])**2)`
+    return sqrt((habitat_1['vegetation']-habitat_2['vegetation'])**2 + 
+                (habitat_1['proximite_eau']-habitat_2['proximite_eau'])**2 + 
+                (habitat_1['densite_urbaine']-habitat_2['densite_urbaine'])**2 + 
+                (habitat_1['disponibilite_proies']-habitat_2['disponibilite_proies'])**2)`
 },
 {id:"11-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>distance_d_un_habitat(habitat, habitats)</code> → liste de tuples <code>(distance, habitat)</code>.`,
 hint:"Parcourir la liste habitats et créer le tuple (distance(habitat, hab), hab).",
 starter:`def distance_d_un_habitat(habitat, habitats):
-'''
-Calcule la distance entre un habitat et chaque habitat de la liste.
-'''
-pass  # à remplacer par votre code`,
+    '''
+    Calcule la distance entre un habitat et chaque habitat de la liste.
+    '''
+    pass  # à remplacer par votre code`,
 answer_keywords:["for hab in","distance(","append","(distance","return lst"],
 correction:`def distance_d_un_habitat(habitat, habitats):
-lst = []
-for hab in habitats:
-lst.append((distance(habitat, hab), hab))
-return lst`
+    lst = []
+    for hab in habitats:
+        lst.append((distance(habitat, hab), hab))
+    return lst`
 },
 {id:"11-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Tester <code>distance_d_un_habitat(nouveau, zones_connues)</code> et afficher les 3 premiers tuples triés.`,
@@ -1652,21 +1762,22 @@ answer_keywords:["distance_d_un_habitat","sorted","[:3]","lambda","nouveau","zon
 correction:`distances = distance_d_un_habitat(nouveau, zones_connues)
 distances_triees = sorted(distances, key=lambda t: t[0])
 for t in distances_triees[:3]:
-print(t)`
+    print(t)`
 },
 {id:"11-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> La fonction <code>presence_renard</code> contient une erreur. Identifier et corriger.`,
 hint:"On accède à distance['presence_renard'] au lieu de caracteristiques['presence_renard'].",
 starter:`# La fonction bugguée :
 def presence_renard(k, habitat, habitats):
-habitats = k_plus_proches(k, habitat, habitats)
-n_renards = 0
-for habitat in habitats:
-distance = habitat[0]
-caracteristiques = habitat[1]
-if distance['presence_renard']:  # BUG : devrait être caracteristiques
-n_renards += 1
-return n_renards > k/2
+    habitats = k_plus_proches(k, habitat, habitats)
+    n_renards = 0
+    for habitat in habitats:
+        distance = habitat[0]
+        caracteristiques = habitat[1]
+        if distance['presence_renard']:  # BUG : devrait être caracteristiques
+            n_renards += 1
+    return n_renards > k/2
+
 # Corriger ici :`,
 answer_keywords:["caracteristiques","presence_renard","habitat[1]","n_renards","return n_renards"],
 correction:`Erreur : on accède à distance['presence_renard'] (c'est un float) au lieu de caracteristiques['presence_renard'].
@@ -1676,8 +1787,8 @@ Correction : remplacer distance['presence_renard'] par caracteristiques['presenc
 text:`<strong>Question 5 :</strong> L'habitat nouveau est-il susceptible de contenir des renards ? Tester avec k=3, 5, 7.`,
 hint:"Tester avec différentes valeurs de k et observer si la majorité ont presence_renard=True.",
 starter:`for k in [3, 5, 7, 9, 11]:
-resultat = presence_renard(k, nouveau, zones_connues)
-print(f"k={k} : {resultat}")
+    resultat = presence_renard(k, nouveau, zones_connues)
+    print(f"k={k} : {resultat}")
 # Interpréter les résultats ici :`,
 answer_keywords:["k=","presence_renard","True","False","voisins","majorité","résultat"],
 correction:`Résultat : dès k>3, la majorité des voisins ont presence_renard=False.
@@ -1693,37 +1804,39 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire le constructeur <code>__init__</code> de la classe <code>Renard</code>.`,
 hint:"Affecter chaque paramètre à self.identifiant, self.nom, etc.",
 starter:`class Renard:
-"""
-Classe représentant un renard dans le refuge.
-Attributs : identifiant, nom, poids, date_arrivee.
-"""
-def __init__(self, identifiant, nom, poids, date_arrivee):
-pass  # Question 1 à compléter
-def __str__(self):
-pass  # Question 2 à compléter`,
+    """
+    Classe représentant un renard dans le refuge.
+    Attributs : identifiant, nom, poids, date_arrivee.
+    """
+
+    def __init__(self, identifiant, nom, poids, date_arrivee):
+        pass  # Question 1 à compléter
+
+    def __str__(self):
+        pass  # Question 2 à compléter`,
 answer_keywords:["self.identifiant","self.nom","self.poids","self.date_arrivee","def __init__"],
 correction:`def __init__(self, identifiant, nom, poids, date_arrivee):
-self.identifiant = identifiant
-self.nom = nom
-self.poids = poids
-self.date_arrivee = date_arrivee`
+    self.identifiant = identifiant
+    self.nom = nom
+    self.poids = poids
+    self.date_arrivee = date_arrivee`
 },
 {id:"12-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>__str__</code> → <code>"Renard ID [id] - [Nom] (Arrivé le [date])"</code>.<br>
 Test : <code>Renard(200, 'Oscar', 5.1, '2026-01-01')</code> → <code>"Renard ID 200 - Oscar (Arrivé le 2026-01-01)"</code>`,
 hint:"Construire avec f-string.",
 starter:`    def __str__(self):
-pass  # Question 2 à compléter`,
+        pass  # Question 2 à compléter`,
 answer_keywords:["self.identifiant","self.nom","self.date_arrivee","Renard ID","Arrivé le","return"],
 correction:`def __str__(self):
-ch = 'Renard ID '
-ch += str(self.identifiant)
-ch += ' - '
-ch += self.nom
-ch += ' (Arrivé le '
-ch += self.date_arrivee
-ch += ')'
-return ch`
+    ch = 'Renard ID '
+    ch += str(self.identifiant)
+    ch += ' - '
+    ch += self.nom
+    ch += ' (Arrivé le '
+    ch += self.date_arrivee
+    ch += ')'
+    return ch`
 },
 {id:"12-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> <code>importer_donnees</code> provoque une erreur lors des comparaisons de poids. Identifier et corriger.`,
@@ -1731,16 +1844,17 @@ hint:"Les données CSV sont lues comme des str. identifiant doit être int() et 
 starter:`# La ligne bugguée :
 renard = Renard(ligne['id'], ligne['nom'], ligne['poids'], ligne['date_arrivee'])
 # 'id' est une chaîne, 'poids' est une chaîne → erreur lors de la comparaison poids < 6.0
+
 # Correction :`,
 answer_keywords:["int(","float(","str","chaîne","conversion","id","poids","int(ligne","float(ligne"],
 correction:`Erreur : données CSV lues comme str. poids < 6.0 impossible si poids est str.
 Correction :
-renard = Renard(int(ligne['id']), ligne['nom'], float(ligne['poids']), ligne['date_arrivee'])`
+    renard = Renard(int(ligne['id']), ligne['nom'], float(ligne['poids']), ligne['date_arrivee'])`
 },
 {id:"12-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> Exécuter <code>pourcentage_peu_corpulents()</code> et justifier le résultat.`,
 hint:"Compter renards avec poids < 6.0, diviser par le total, multiplier par 100.",
-starter:`refuge1 = Refuge('SOS Goupil', '2 rue du Renard 63150 Renardville')
+starter:`refuge1 = Refuge('SOS Goupil', '2 rue du Renard 63150 Renardville') 
 refuge1.importer_donnees('donnees_renards.csv')
 print(refuge1.pourcentage_peu_corpulents())
 # Justification :`,
@@ -1768,45 +1882,45 @@ text:`<strong>Question 2 :</strong> Écrire <code>conversion_K_en_C(liste_temper
 hint:"Pour chaque temp_K : temp_C = round(temp_K - 273.15, 1).",
 starter:`# QUESTION 2
 def conversion_K_en_C(liste_temperatures):
-pass  # Ajuster la fonction`,
+    pass  # Ajuster la fonction`,
 answer_keywords:["- 273.15","round","273.15","lst.append","return lst","for temp_K"],
 correction:`def conversion_K_en_C(liste_temperatures):
-lst = []
-for temp_K in liste_temperatures:
-temp_C = round(temp_K - 273.15, 1)
-lst.append(temp_C)
-return lst`
+    lst = []
+    for temp_K in liste_temperatures:
+        temp_C = round(temp_K - 273.15, 1)
+        lst.append(temp_C)
+    return lst`
 },
 {id:"13-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Écrire <code>altitude_la_plus_froide(liste_altitudes, liste_temperatures)</code> → tuple <code>(temp_min, [altitudes])</code>.`,
 hint:"Trouver min(liste_temperatures), puis collecter les altitudes correspondantes.",
 starter:`# QUESTION 3
 def altitude_la_plus_froide(liste_altitudes, liste_temperatures):
-pass  # Ajuster la fonction`,
+    pass  # Ajuster la fonction`,
 answer_keywords:["min(","min_temp","for i in range","liste_temperatures[i]","== min_temp","lst.append","return"],
 correction:`def altitude_la_plus_froide(liste_altitudes, liste_temperatures):
-min_temp = 10**3
-for temp in liste_temperatures:
-if temp < min_temp:
-min_temp = temp
-lst = []
-for i in range(len(liste_altitudes)):
-if liste_temperatures[i] == min_temp:
-lst.append(liste_altitudes[i])
-return (min_temp, lst)`
+    min_temp = 10**3
+    for temp in liste_temperatures:
+        if temp < min_temp:
+            min_temp = temp
+    lst = []
+    for i in range(len(liste_altitudes)):
+        if liste_temperatures[i] == min_temp:
+            lst.append(liste_altitudes[i])
+    return (min_temp, lst)`
 },
 {id:"13-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Ajouter une assertion dans <code>genere_kml</code> garantissant que les deux listes ont la même longueur.`,
 hint:"assert len(liste_longitudes) == len(liste_latitudes)",
 starter:`def genere_kml(liste_longitudes, liste_latitudes):
-""" Génère un fichier KML """
-# AJOUTER L'ASSERTION ICI
-fichier_kml = open('ballon sonde.kml', 'w')
-# ...`,
+    """ Génère un fichier KML """
+    # AJOUTER L'ASSERTION ICI
+    fichier_kml = open('ballon sonde.kml', 'w')
+    # ...`,
 answer_keywords:["assert","len(liste_longitudes)","len(liste_latitudes)","==","même longueur"],
 correction:`def genere_kml(liste_longitudes, liste_latitudes):
-assert len(liste_longitudes) == len(liste_latitudes)
-# Suite du code...`
+    assert len(liste_longitudes) == len(liste_latitudes)
+    # Suite du code...`
 },
 {id:"13-5",num:5,type:"code",
 text:`<strong>Question 5 :</strong> Écrire l'appel à <code>genere_kml</code> avec les listes de la question 1.`,
@@ -1826,84 +1940,85 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>nb_occupants_restants(self)</code> → somme de toutes les cases.`,
 hint:"Parcourir self.grille avec deux boucles imbriquées.",
 starter:`    def nb_occupants_restants(self):
-''' renvoie le nombre d'occupants restants dans la pièce.
-A FAIRE (QUESTION 1)
-'''
-pass`,
+        ''' renvoie le nombre d'occupants restants dans la pièce.
+            A FAIRE (QUESTION 1)
+        '''
+        pass`,
 answer_keywords:["for lst in","for nb in","nb_occ","self.grille","return nb_occ","+="],
 correction:`def nb_occupants_restants(self):
-nb_occ = 0
-for lst in self.grille:
-for nb in lst:
-nb_occ += nb
-return nb_occ`
+    nb_occ = 0
+    for lst in self.grille:
+        for nb in lst:
+            nb_occ += nb
+    return nb_occ`
 },
 {id:"14-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>evacuation(p, silencieux=True)</code> → nombre de tours pour évacuer.`,
 hint:"Boucle while p.nb_occupants_restants() > 0. Incrémenter nb_tours.",
 starter:`def evacuation(p, silencieux=True):
-''' simule l'évacuation de la pièce et renvoie le nombre de tours nécessaire.
-A FAIRE EN QUESTION 2
-'''
-pass`,
+    ''' simule l'évacuation de la pièce et renvoie le nombre de tours nécessaire.
+        A FAIRE EN QUESTION 2
+    '''
+    pass`,
 answer_keywords:["nb_occupants_restants","while","alerter","nb_tours","silencieux","return nb_tours"],
 correction:`def evacuation(p, silencieux=True):
-nb_tours = 0
-while p.nb_occupants_restants() > 0:
-nb_tours += 1
-if not p.alerter(silencieux):
-break
-return nb_tours`
+    nb_tours = 0
+    while p.nb_occupants_restants() > 0:
+        nb_tours += 1
+        if not p.alerter(silencieux):
+            break
+    return nb_tours`
 },
 {id:"14-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Compléter <code>ajouter_sortie</code> pour supporter "S" et "E". S : (i_max, position). E : (position, j_max).`,
 hint:"Ajouter deux elif dans la méthode.",
 starter:`    def ajouter_sortie(self, direction, position):
-''' permet d'ajouter des sorties à la pièce.
-A COMPLETER (QUESTION 3) (Pour l'instant, on n'utilise que deux directions !)
-'''
-if direction == "N":
-self.sorties.append((0, position))
-elif direction == "O":
-self.sorties.append((position, 0))`,
+        ''' permet d'ajouter des sorties à la pièce.
+            A COMPLETER (QUESTION 3) (Pour l'instant, on n'utilise que deux directions !)
+        '''
+        if direction == "N":
+            self.sorties.append((0, position))
+        elif direction == "O":
+            self.sorties.append((position, 0))`,
 answer_keywords:["direction == 'S'","direction == \"S\"","direction == 'E'","direction == \"E\"","self.i_max","self.j_max","sorties.append","elif"],
 correction:`def ajouter_sortie(self, direction, position):
-if direction == 'N':
-self.sorties.append((0, position))
-elif direction == 'O':
-self.sorties.append((position, 0))
-elif direction == 'S':
-self.sorties.append((self.i_max, position))
-elif direction == 'E':
-self.sorties.append((position, self.j_max))`
+    if direction == 'N':
+        self.sorties.append((0, position))
+    elif direction == 'O':
+        self.sorties.append((position, 0))
+    elif direction == 'S':
+        self.sorties.append((self.i_max, position))
+    elif direction == 'E':
+        self.sorties.append((position, self.j_max))`
 },
 {id:"14-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> <code>choix_sortie</code> présente deux bugs. Les identifier et proposer la correction.`,
 hint:"Bug 1 : 'if k < 0' toujours False. Bug 2 : 'd2' n'existe pas.",
 starter:`# La méthode bugguée :
-def choix_sortie(self, i, j):
-...
-for k in range(1, len(self.sorties)):
-autre_sortie = self.sorties[k]
-if k < 0:          # BUG 1 : k ∈ range(1,...), jamais < 0
-choix = autre_sortie
-distance = d2  # BUG 2 : d2 n'existe pas
+    def choix_sortie(self, i, j):
+        ...
+        for k in range(1, len(self.sorties)):
+            autre_sortie = self.sorties[k]
+            if k < 0:          # BUG 1 : k ∈ range(1,...), jamais < 0
+                choix = autre_sortie
+                distance = d2  # BUG 2 : d2 n'existe pas
+
 # Analyser et corriger :`,
 answer_keywords:["k < 0","d2","distance_de_manhattan","< distance","choix = self.sorties[k]","return choix"],
 correction:`Bug 1 : "if k < 0" → k vaut au moins 1, donc jamais négatif.
 Bug 2 : "d2" n'est jamais défini → NameError.
 Correction :
 def choix_sortie(self, i, j):
-def distance_de_manhattan(dest):
-return abs(i - dest[0]) + abs(j - dest[1])
-assert len(self.sorties) > 0, 'Aucune sortie'
-choix = self.sorties[0]
-distance = distance_de_manhattan(choix)
-for k in range(1, len(self.sorties)):
-if distance_de_manhattan(self.sorties[k]) < distance:
-distance = distance_de_manhattan(self.sorties[k])
-choix = self.sorties[k]
-return choix`
+    def distance_de_manhattan(dest):
+        return abs(i - dest[0]) + abs(j - dest[1])
+    assert len(self.sorties) > 0, 'Aucune sortie'
+    choix = self.sorties[0]
+    distance = distance_de_manhattan(choix)
+    for k in range(1, len(self.sorties)):
+        if distance_de_manhattan(self.sorties[k]) < distance:
+            distance = distance_de_manhattan(self.sorties[k])
+            choix = self.sorties[k]
+    return choix`
 }
 ]
 },
@@ -1916,14 +2031,15 @@ text:`<strong>Question 1 :</strong> Écrire <code>normalisation_tel(num)</code> 
 hint:"Parcourir chaque caractère, si c.isdigit() l'ajouter.",
 starter:`# Numéros de téléphones
 # Question 1 : nettoyage des numéros de téléphone
+
 # Écrire la fonction normalisation_tel ici`,
 answer_keywords:["isdigit()","for c in","clean_num","+=","return clean_num"],
 correction:`def normalisation_tel(num):
-clean_num = ''
-for c in num:
-if c.isdigit():
-clean_num += c
-return clean_num`
+    clean_num = ''
+    for c in num:
+        if c.isdigit():
+            clean_num += c
+    return clean_num`
 },
 {id:"15-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire un jeu de tests pour <code>validation_tel</code> (valide si 10 chiffres, commence par 06 ou 07).`,
@@ -1932,52 +2048,53 @@ starter:`# Ecrire votre jeu de tests permettant
 # de vérifier le bon fonctionnement de la fonction.`,
 answer_keywords:["validation_tel","== True","== False","0612","0712","assert","fixe","longueur"],
 correction:`def test_validation_tel():
-assert validation_tel('0612999012') == True
-assert validation_tel('0712999012') == True
-assert validation_tel('02.12.99.90.12') == False
-assert validation_tel('1612999012') == False
-assert validation_tel('12999012') == False
-assert validation_tel('0512999012') == False
-print('Les tests de la fonction validation_tel sont passés')`
+    assert validation_tel('0612999012') == True
+    assert validation_tel('0712999012') == True
+    assert validation_tel('02.12.99.90.12') == False
+    assert validation_tel('1612999012') == False
+    assert validation_tel('12999012') == False
+    assert validation_tel('0512999012') == False
+    print('Les tests de la fonction validation_tel sont passés')`
 },
 {id:"15-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Écrire <code>consultation_vaccination_chat(date)</code> → liste (id_animal, nom_animal, telephone, date_consultation) triée par id_animal et date.`,
 hint:"JOIN animal, proprietaire et consultation. WHERE espece='chat' AND motif='vaccination' AND date > ?",
 starter:`def consultation_vaccination_chat(date):
-'''
-Renvoie les consultations de vaccination de chats dont la date
-est supérieure à la date \`date\`.
-'''
-pass`,
+    '''
+    Renvoie les consultations de vaccination de chats dont la date
+    est supérieure à la date \`date\`.
+    '''
+    pass`,
 answer_keywords:["JOIN","animal","proprietaire","consultation","espece","chat","vaccination","date >","ORDER BY"],
 correction:`def consultation_vaccination_chat(date):
-conn = sqlite3.connect(DB_PATH)
-cursor = conn.cursor()
-resultat = cursor.execute(
-'''
-SELECT a.id, a.nom , telephone, c.date
-FROM proprietaire as p
-JOIN  animal as a ON p.id = a.id_proprietaire
-JOIN  consultation as c ON c.id_animal = a.id
-WHERE c.date > ? and  a.espece = 'chat' and c.motif ='vaccination'
-ORDER BY a.id, c.date;
-''', (date,))
-return list(resultat)`
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    resultat = cursor.execute(
+    '''
+    SELECT a.id, a.nom , telephone, c.date
+    FROM proprietaire as p
+    JOIN  animal as a ON p.id = a.id_proprietaire
+    JOIN  consultation as c ON c.id_animal = a.id
+    WHERE c.date > ? and  a.espece = 'chat' and c.motif ='vaccination'
+    ORDER BY a.id, c.date;
+    ''', (date,))
+    return list(resultat)`
 },
 {id:"15-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> <code>derniere_vaccination</code> garde la date la plus ancienne. Identifier et corriger.`,
 hint:"La condition est 'elif date < derniere[...]' au lieu de '>'.",
 starter:`# La fonction bugguée :
 def derniere_vaccination(consultations):
-derniere = {}
-for consult in consultations:
-id_animal = consult[0]
-date = consult[3]
-if id_animal not in derniere:
-derniere[id_animal] = consult
-elif date < derniere[id_animal][3]:  # BUG : devrait être >
-derniere[id_animal] = consult
-return derniere
+    derniere = {}
+    for consult in consultations:
+        id_animal = consult[0]
+        date = consult[3]
+        if id_animal not in derniere:
+            derniere[id_animal] = consult
+        elif date < derniere[id_animal][3]:  # BUG : devrait être >
+            derniere[id_animal] = consult
+    return derniere
+
 # Expliquer et corriger :`,
 answer_keywords:["date >","< au lieu","plus récente","plus ancienne","elif date","condition","derniere[id_animal][3]"],
 correction:`Erreur : "elif date < derniere[id_animal][3]" garde la date la plus ancienne.
@@ -1996,14 +2113,15 @@ starter:`# Question 1 : Recherche de l'écart
 # Écrire la fonction ecart_temperature et ses tests ici`,
 answer_keywords:["for dico in","dico['année']","== annee","dico['écart']","return None","assert"],
 correction:`def ecart_temperature(datas, annee):
-for dico in datas:
-if annee in dico.values():
-return dico['écart']
-return None
+    for dico in datas:
+        if annee in dico.values():
+            return dico['écart']
+    return None
+
 def test_ecart_temperature():
-assert ecart_temperature(datas_temperature, 2025) == 1.29
-assert ecart_temperature(datas_temperature, 2030) == None
-print('tests passés avec succès')`
+    assert ecart_temperature(datas_temperature, 2025) == 1.29
+    assert ecart_temperature(datas_temperature, 2030) == None
+    print('tests passés avec succès')`
 },
 {id:"16-2",num:2,type:"mc",
 text:`<strong>Question 2 :</strong> En utilisant <code>derniere_annee_ecart_negatif(datas_temperature)</code>, quelle est la dernière année avec un écart négatif ?`,
@@ -2017,13 +2135,14 @@ text:`<strong>Question 3 :</strong> <code>moyenne_ecarts</code> donne un résult
 hint:"Chercher 'somme = somme - dico[...]' au lieu de '+ dico[...]'.",
 starter:`# La fonction bugguée :
 def moyenne_ecarts(annee_debut, annee_fin, datas):
-somme = 0
-compteur = 0
-for dico in datas:
-if annee_debut <= dico['année'] and dico['année'] <= annee_fin:
-somme = somme - dico['écart']  # BUG
-compteur += 1
-return somme / compteur
+    somme = 0
+    compteur = 0
+    for dico in datas:
+        if annee_debut <= dico['année'] and dico['année'] <= annee_fin:
+            somme = somme - dico['écart']  # BUG
+            compteur += 1
+    return somme / compteur
+
 # Identifier l'erreur et corriger :`,
 answer_keywords:["somme = somme +","- dico","+ dico","soustrait","addition","écart","corrig"],
 correction:`Bug : "somme = somme - dico['écart']" soustrait au lieu d'additionner.
@@ -2033,22 +2152,24 @@ Correction : somme = somme + dico['écart']`
 text:`<strong>Question 4 :</strong> Compléter <code>graphique(datas)</code> en créant les listes <code>annees</code> et <code>ordonnees</code>.`,
 hint:"Parcourir datas, ajouter dico['année'] à annees et 1 à ordonnees.",
 starter:`def graphique(datas):
-fig, ax = plt.subplots(figsize=(10, 2))
-cmap = plt.get_cmap("seismic")
-temperatures = [dico["écart"] for dico in datas]
-max_val = max(max(temperatures), -min(temperatures))
-norm = plt.Normalize(-max_val, max_val)
-# A COMPLETER
-# Création des listes annees et ordonnees
-# pour les abscisses et ordonnées
-# Génération du graphique
-ax.bar(annees, ordonnees, width=1.0, color=cmap(norm(temperatures)))`,
+    fig, ax = plt.subplots(figsize=(10, 2))
+    cmap = plt.get_cmap("seismic")
+    temperatures = [dico["écart"] for dico in datas]
+    max_val = max(max(temperatures), -min(temperatures))
+    norm = plt.Normalize(-max_val, max_val)
+
+    # A COMPLETER
+    # Création des listes annees et ordonnees 
+    # pour les abscisses et ordonnées
+
+    # Génération du graphique
+    ax.bar(annees, ordonnees, width=1.0, color=cmap(norm(temperatures)))`,
 answer_keywords:["annees.append","dico['année']","ordonnees.append","1","for dico in","plt"],
 correction:`annees = []
 ordonnees = []
 for dico in datas:
-annees.append(dico['année'])
-ordonnees.append(1)`
+    annees.append(dico['année'])
+    ordonnees.append(1)`
 }
 ]
 },
@@ -2064,15 +2185,16 @@ starter:`#######################################################################
 #############################################################################`,
 answer_keywords:["mv['type']","== type_mouvement","mv['montant']","total +=","return total","assert"],
 correction:`def total_par_type(mouvements, type_mouvement):
-total = 0
-for mv in mouvements:
-if mv['type'] == type_mouvement:
-total += mv['montant']
-return total
+    total = 0
+    for mv in mouvements:
+        if mv['type'] == type_mouvement:
+            total += mv['montant']
+    return total
+
 def test_total():
-assert total_par_type(mouvements_test, 'dépense') == 2150.0
-assert total_par_type(mouvements_test, 'recette') == 2300.0
-print('tests passés avec succès')`
+    assert total_par_type(mouvements_test, 'dépense') == 2150.0 
+    assert total_par_type(mouvements_test, 'recette') == 2300.0
+    print('tests passés avec succès')`
 },
 {id:"17-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Calculer manuellement le solde annuel de mouvements_test. Écrire une assertion qui devrait passer mais échoue (code bugué).`,
@@ -2081,23 +2203,25 @@ starter:`# Calcul manuel :
 # Recettes : 1200 + 300 + 800 = 2300
 # Dépenses : 450 + 200 + 1500 = 2150
 # Solde = ?
+
 # Écrire ci-dessous la fonction test_solde_annuel (Question 2)
 #############################################################################`,
 answer_keywords:["150","2300","2150","assert solde_annuel","== 150","recettes","dépenses"],
 correction:`Solde = 2300 - 2150 = 150
 def test_solde_annuel():
-assert solde_annuel(mouvements_test) == 150  # Ce test échoue car code bugué`
+    assert solde_annuel(mouvements_test) == 150  # Ce test échoue car code bugué`
 },
 {id:"17-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> Analyser <code>solde_annuel</code> et identifier pourquoi certains mois sont ignorés.`,
 hint:"La boucle utilise range(1, 12) — quel mois est exclu ?",
 starter:`# La fonction bugguée :
 def solde_annuel(mouvements):
-total = 0
-# Parcourt les mois de l'année pour cumuler le bilan
-for m in range(1, 12):  # BUG ICI
-total = total + solde_mensuel(mouvements, m)
-return total
+    total = 0
+    # Parcourt les mois de l'année pour cumuler le bilan
+    for m in range(1, 12):  # BUG ICI
+        total = total + solde_mensuel(mouvements, m)
+    return total
+
 # Identifier et corriger l'erreur :`,
 answer_keywords:["range(1, 12)","range(1, 13)","décembre","mois 12","13","ignoré","exclut"],
 correction:`Bug : range(1, 12) s'arrête à 11, décembre (mois 12) est ignoré.
@@ -2115,16 +2239,16 @@ hint:"Compter n et sommer. Si n==0 retourner None.",
 starter:`#  Question 1 : Ecrire le code de votre fonction température_moyenne`,
 answer_keywords:["d['zone']","== zone","d['temperature']","somme","n == 0","return None","return somme"],
 correction:`def temperature_moyenne(zone, donnees):
-somme_temperatures = 0
-n = 0
-for d in donnees:
-if d['zone'] == zone:
-somme_temperatures += d['temperature']
-n += 1
-if n == 0:
-return None
-else:
-return somme_temperatures / n`
+    somme_temperatures = 0
+    n = 0
+    for d in donnees:
+        if d['zone'] == zone:
+            somme_temperatures += d['temperature']
+            n += 1
+    if n == 0:
+        return None
+    else:
+        return somme_temperatures / n`
 },
 {id:"18-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>detecter_anomalies(zone, seuil, donnees)</code> → dates où la température s'écarte de plus de seuil degrés.`,
@@ -2132,55 +2256,60 @@ hint:"Calculer la moyenne, puis vérifier abs(temp - moy) > seuil.",
 starter:`#  Question 2 : Ecrire le code de votre fonction detection_anomalies`,
 answer_keywords:["temperature_moyenne","abs(","seuil","d['zone']","liste_dates.append","return []","return liste_dates"],
 correction:`def detecter_anomalies(zone, seuil, donnees):
-t = temperature_moyenne(zone, donnees)
-liste_dates = []
-for d in donnees:
-if d['zone'] == zone and abs(d['temperature'] - t) > seuil:
-liste_dates.append(d['date'])
-return liste_dates`
+    t = temperature_moyenne(zone, donnees)
+    liste_dates = []
+    for d in donnees:
+        if d['zone'] == zone and abs(d['temperature'] - t) > seuil:
+            liste_dates.append(d['date'])
+    return liste_dates`
 },
 {id:"18-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Compléter les 3 fonctions de test pour <code>evolution_par_decennie</code> afin d'identifier le bug.`,
 hint:"Bug : décennie = annee // 10 au lieu de (annee // 10) * 10.",
 starter:`#  Exercice 2.1 :
 def test_zone_inexistante():
-"""Test 1 : Tester une zone qui n'existe pas"""
-pass  # à remplacer par le code du candidat
+    """Test 1 : Tester une zone qui n'existe pas"""
+    pass  # à remplacer par le code du candidat
+
+
 def test_une_seule_decennie():
-"""Test 2: Tester une zone avec données sur une seule décennie"""
-pass  # à remplacer par le code du candidat
+    """Test 2: Tester une zone avec données sur une seule décennie"""
+    pass  # à remplacer par le code du candidat
+
+
 def test_plusieurs_decennies():
-"""Test 3 : Tester une zone avec données sur plusieurs décennies"""
-pass  # à remplacer par le code du candidat`,
+    """Test 3 : Tester une zone avec données sur plusieurs décennies"""
+    pass  # à remplacer par le code du candidat`,
 answer_keywords:["evolution_par_decennie","== {}","assert","2010","2020","Societe","Marquises","Tahiti"],
 correction:`def test_zone_inexistante():
-assert evolution_par_decennie('Tahiti', donnees_test) == {}
+    assert evolution_par_decennie('Tahiti', donnees_test) == {}
 def test_une_seule_decennie():
-assert len(evolution_par_decennie('Marquises', donnees_test)) == 1
-assert evolution_par_decennie('Marquises', donnees_test)[2020] == 26.0
+    assert len(evolution_par_decennie('Marquises', donnees_test)) == 1
+    assert evolution_par_decennie('Marquises', donnees_test)[2020] == 26.0
 def test_plusieurs_decennies():
-resultat = evolution_par_decennie('Societe', donnees_test)
-assert 2010 in resultat and 2020 in resultat`
+    resultat = evolution_par_decennie('Societe', donnees_test)
+    assert 2010 in resultat and 2020 in resultat`
 },
 {id:"18-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Corriger la fonction <code>evolution_par_decennie</code> après avoir identifié le bug.`,
 hint:"Chercher 'decennie = (annee // 10)' et remplacer par 'decennie = (annee // 10) * 10'.",
 starter:`# code de la fonction evolution_par_decennie à corriger dans la question 4:
+
 def evolution_par_decennie(zone, donnees):
-releves_zone = [r for r in donnees if r['zone'] == zone]
-if len(releves_zone) == 0:
-return {}
-temperatures_par_decennie = {}
-for releve in releves_zone:
-annee = int(releve['date'].split('-')[0])
-decennie = (annee // 10)  # BUG ICI
-if decennie not in temperatures_par_decennie:
-temperatures_par_decennie[decennie] = []
-temperatures_par_decennie[decennie].append(releve['temperature'])
-moyennes = {}
-for decennie, temperatures in temperatures_par_decennie.items():
-moyennes[decennie] = round(sum(temperatures) / len(temperatures), 2)
-return moyennes`,
+    releves_zone = [r for r in donnees if r['zone'] == zone]
+    if len(releves_zone) == 0:
+        return {}
+    temperatures_par_decennie = {}
+    for releve in releves_zone:
+        annee = int(releve['date'].split('-')[0])
+        decennie = (annee // 10)  # BUG ICI
+        if decennie not in temperatures_par_decennie:
+            temperatures_par_decennie[decennie] = []
+        temperatures_par_decennie[decennie].append(releve['temperature'])
+    moyennes = {}
+    for decennie, temperatures in temperatures_par_decennie.items():
+        moyennes[decennie] = round(sum(temperatures) / len(temperatures), 2)
+    return moyennes`,
 answer_keywords:["(annee // 10) * 10","* 10","décennie","corrig","2010","2020"],
 correction:`Correction : "decennie = annee // 10" → "decennie = (annee // 10) * 10"`
 }
@@ -2194,76 +2323,82 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>est_en_penurie(liste_reservoirs, nom_reservoir)</code>.`,
 hint:"Chercher le réservoir par nom, calculer volume/capacite et comparer à 0.2.",
 starter:`# Question 1 : écrire la fonction est_en_penurie
+
+
 def est_en_penurie(reservoirs, nom_reservoir):
-pass`,
+    pass`,
 answer_keywords:["reservoir['nom']","== nom_reservoir","volume","capacite","< 0.2","return taux"],
 correction:`def est_en_penurie(liste_reservoirs, nom_reservoir):
-for reservoir in liste_reservoirs:
-if reservoir['nom'] == nom_reservoir:
-taux = reservoir['volume'] / reservoir['capacite']
-return taux < 0.2`
+    for reservoir in liste_reservoirs:
+        if reservoir['nom'] == nom_reservoir:
+            taux = reservoir['volume'] / reservoir['capacite']
+            return taux < 0.2`
 },
 {id:"19-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>volume_par_district(reservoirs)</code> → <code>{district: volume_total}</code>.`,
 hint:"Parcourir les réservoirs, accumuler les volumes par district.",
 starter:`# Question 2 : écrire la fonction volume_par_district
+
+
 def volume_par_district(reservoirs):
-pass`,
+    pass`,
 answer_keywords:["reservoir['district']","district","reservoir['volume']","dico","in dico","return dico"],
 correction:`def volume_par_district(reservoirs):
-dico_districts = {}
-for reservoir in reservoirs:
-nom_district = reservoir['district']
-if nom_district in dico_districts:
-dico_districts[nom_district] += reservoir['volume']
-else:
-dico_districts[nom_district] = reservoir['volume']
-return dico_districts`
+    dico_districts = {}
+    for reservoir in reservoirs:
+        nom_district = reservoir['district']
+        if nom_district in dico_districts:
+            dico_districts[nom_district] += reservoir['volume']
+        else:
+            dico_districts[nom_district] = reservoir['volume']
+    return dico_districts`
 },
 {id:"19-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Écrire des assertions montrant que <code>volume_moyen</code> est incorrecte, puis corriger la fonction.`,
 hint:"La division se fait par (len-1) au lieu de len, et aucun test pour liste vide.",
 starter:`# Question 3
+
 # La fonction bugguée :
 def volume_moyen(reservoirs):
-'''Renvoie le volume moyen d'eau disponible dans les réservoirs.'''
-somme_totale = 0
-for r in reservoirs:
-somme_totale += r["volume"]
-moyenne = somme_totale / (len(reservoirs)-1)  # BUG
-return moyenne
+    '''Renvoie le volume moyen d'eau disponible dans les réservoirs.'''
+    somme_totale = 0
+    for r in reservoirs:
+        somme_totale += r["volume"]
+    moyenne = somme_totale / (len(reservoirs)-1)  # BUG
+    return moyenne
+
 # Écrire vos assertions et une version corrigée :`,
 answer_keywords:["len(reservoirs)","== 0","somme_totale","sum","/ len","volume","return","assert"],
 correction:`assert volume_moyen([{'volume': 50000, 'capacite': 100000}, {'volume': 50000, 'capacite': 100000}]) == 50000
 # Bug : division par (len-1) au lieu de len
 def volume_moyen(reservoirs):
-if len(reservoirs) == 0:
-return 0
-somme_totale = 0
-for r in reservoirs:
-somme_totale += r['volume']
-return somme_totale / len(reservoirs)`
+    if len(reservoirs) == 0:
+        return 0
+    somme_totale = 0
+    for r in reservoirs:
+        somme_totale += r['volume']
+    return somme_totale / len(reservoirs)`
 },
 {id:"19-4",num:4,type:"code",
 text:`<strong>Question 4 :</strong> Écrire <code>districts_vulnerables(reservoirs)</code> : districts dont le volume moyen < 80% du volume moyen global.`,
 hint:"Calculer le volume moyen global, puis pour chaque district comparer à 80%.",
 starter:`def districts_vulnerables(reservoirs):
-pass`,
+    pass`,
 answer_keywords:["volume_moyen","vol_global","seuil","0.8","< seuil","vol_par_district","district","vulnerables.append"],
 correction:`def districts_vulnerables(reservoirs, seuil=0.8):
-if not reservoirs:
-return []
-volume_global_moyen = volume_moyen(reservoirs)
-vol_par_district = volume_par_district(reservoirs)
-nb_reservoirs_par_district = {d: 0 for d in vol_par_district}
-for r in reservoirs:
-nb_reservoirs_par_district[r['district']] += 1
-districts_vuln = []
-for district, vol_total in vol_par_district.items():
-vol_moyen_district = vol_total / nb_reservoirs_par_district[district]
-if vol_moyen_district < seuil * volume_global_moyen:
-districts_vuln.append(district)
-return districts_vuln`
+    if not reservoirs:
+        return []
+    volume_global_moyen = volume_moyen(reservoirs)
+    vol_par_district = volume_par_district(reservoirs)
+    nb_reservoirs_par_district = {d: 0 for d in vol_par_district}
+    for r in reservoirs:
+        nb_reservoirs_par_district[r['district']] += 1
+    districts_vuln = []
+    for district, vol_total in vol_par_district.items():
+        vol_moyen_district = vol_total / nb_reservoirs_par_district[district]
+        if vol_moyen_district < seuil * volume_global_moyen:
+            districts_vuln.append(district)
+    return districts_vuln`
 }
 ]
 },
@@ -2279,10 +2414,10 @@ starter:`#######################################################################
 #############################################################################`,
 answer_keywords:["EMISSIONS[activite]","utilisateur[activite]","empreinte +=","return empreinte","for activite"],
 correction:`def calculer_empreinte(utilisateur):
-empreinte = 0
-for activite in utilisateur:
-empreinte += EMISSIONS[activite] * utilisateur[activite]
-return empreinte`
+    empreinte = 0
+    for activite in utilisateur:
+        empreinte += EMISSIONS[activite] * utilisateur[activite]
+    return empreinte`
 },
 {id:"20-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>classer_par_impact(utilisateur)</code> → <code>{'fort': [...], 'moyen': [...], 'faible': []}</code>. Seuils : fort ≥ 1000, moyen [200, 1000[, faible < 200.`,
@@ -2292,52 +2427,53 @@ starter:`#######################################################################
 #############################################################################`,
 answer_keywords:["'fort'","'moyen'","'faible'",">= 1000",">= 200","EMISSIONS","append","dict_impact"],
 correction:`def classer_par_impact(utilisateur):
-dict_impact = {'fort': [], 'moyen': [], 'faible': []}
-for activite in utilisateur:
-emissions = EMISSIONS[activite] * utilisateur[activite]
-if emissions >= 1000:
-dict_impact['fort'].append(activite)
-elif emissions >= 200:
-dict_impact['moyen'].append(activite)
-else:
-dict_impact['faible'].append(activite)
-return dict_impact`
+    dict_impact = {'fort': [], 'moyen': [], 'faible': []}
+    for activite in utilisateur:
+        emissions = EMISSIONS[activite] * utilisateur[activite]
+        if emissions >= 1000:
+            dict_impact['fort'].append(activite)
+        elif emissions >= 200:
+            dict_impact['moyen'].append(activite)
+        else:
+            dict_impact['faible'].append(activite)
+    return dict_impact`
 },
 {id:"20-3",num:3,type:"code",
 text:`<strong>Question 3 :</strong> Compléter <code>test_comparer</code> avec ≥ 2 tests supplémentaires.`,
 hint:"Tester quand une activité est absente chez un utilisateur.",
 starter:`def test_comparer():
-diff = comparer(utilisateur4, utilisateur5)
-assert diff['emails_simples'] == -200  # (50-100) * 4
-assert diff['recherches'] == 350     # (100-50) * 7
-# Ajouter vos tests ci-dessous avec justifications`,
+    diff = comparer(utilisateur4, utilisateur5)
+    assert diff['emails_simples'] == -200  # (50-100) * 4
+    assert diff['recherches'] == 350     # (100-50) * 7
+    # Ajouter vos tests ci-dessous avec justifications`,
 answer_keywords:["comparer","assert","== 0","== -200","absente","diff","utilisateur"],
 correction:`def test_comparer():
-diff = comparer(utilisateur4, utilisateur5)
-assert diff['emails_simples'] == -200  # (50-100) * 4
-assert diff['recherches'] == 350     # (100-50) * 7
-assert diff['streaming_hd'] == 0  # absent chez les deux
-diff = comparer(utilisateur2, utilisateur4)
-assert diff['streaming_hd'] == -500  # (0-5) * 100`
+    diff = comparer(utilisateur4, utilisateur5)
+    assert diff['emails_simples'] == -200  # (50-100) * 4
+    assert diff['recherches'] == 350     # (100-50) * 7
+    assert diff['streaming_hd'] == 0  # absent chez les deux
+    diff = comparer(utilisateur2, utilisateur4)
+    assert diff['streaming_hd'] == -500  # (0-5) * 100`
 },
 {id:"20-4",num:4,type:"text",
 text:`<strong>Question 4 :</strong> <code>comparer_v2</code> provoque une erreur dans certains cas. Identifier et corriger.`,
 hint:"Si emission1 == 0 (utilisateur1 n'utilise pas une activité), division par zéro.",
 starter:`# La fonction bugguée :
 def comparer_v2(u1, u2):
-ecarts = {}
-for activite in EMISSIONS:
-...
-ecarts[activite] = (emission2 - emission1)/emission1 * 100  # BUG si emission1 == 0
-return ecarts
+    ecarts = {}
+    for activite in EMISSIONS:
+        ...
+        ecarts[activite] = (emission2 - emission1)/emission1 * 100  # BUG si emission1 == 0
+    return ecarts
+
 # Dans quels cas y a-t-il une erreur ? Comment corriger ?`,
 answer_keywords:["emission1 == 0","division par zéro","None","0","u1.get","absent","activité"],
 correction:`Erreur : ZeroDivisionError si emission1 == 0 (utilisateur1 n'utilise pas une activité).
 Correction : tester emission1 == 0 et retourner None dans ce cas.
 if emission1 == 0:
-ecarts[activite] = None
+    ecarts[activite] = None
 else:
-ecarts[activite] = (emission2 - emission1)/emission1 * 100`
+    ecarts[activite] = (emission2 - emission1)/emission1 * 100`
 }
 ]
 },
@@ -2349,15 +2485,15 @@ questions:[
 text:`<strong>Question 1 :</strong> Écrire <code>traiter_reponse(self, succes)</code>. Succès → niveau +1 (max 4). Échec → niveau 0. Mettre à jour date_prochaine.`,
 hint:"si succes : self.niveau = min(4, self.niveau+1). Sinon : self.niveau = 0. Puis date_future(DELAIS[self.niveau]).",
 starter:`    #############################################################################
-# Écrire la méthode traiter_reponse(self, succes) de la question 1          #
-#############################################################################`,
+    # Écrire la méthode traiter_reponse(self, succes) de la question 1          #
+    #############################################################################`,
 answer_keywords:["min(4","self.niveau + 1","self.niveau = 0","DELAIS[self.niveau]","date_future","date_prochaine"],
 correction:`def traiter_reponse(self, succes):
-if succes:
-self.niveau = min(4, self.niveau+1)
-else:
-self.niveau = 0
-self.date_prochaine = date_future(DELAIS[self.niveau])`
+    if succes:
+        self.niveau = min(4, self.niveau+1)
+    else:
+        self.niveau = 0
+    self.date_prochaine = date_future(DELAIS[self.niveau])`
 },
 {id:"21-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>extraire_cartes_du_jour(paquet, date_jour)</code> → cartes avec date_prochaine ≤ date_jour.`,
@@ -2367,11 +2503,11 @@ starter:`#######################################################################
 #############################################################################`,
 answer_keywords:["carte.date_prochaine","<= date_jour","lst.append","return lst","for carte"],
 correction:`def extraire_cartes_du_jour(paquet, date_jour):
-lst = []
-for carte in paquet:
-if carte.date_prochaine <= date_jour:
-lst.append(carte)
-return lst`
+    lst = []
+    for carte in paquet:
+        if carte.date_prochaine <= date_jour:
+            lst.append(carte)
+    return lst`
 },
 {id:"21-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> <code>extraire_cartes_a_renforcer</code> renvoie trop de cartes. Analyser et corriger.`,
@@ -2379,18 +2515,20 @@ hint:"Quand un nouveau niveau minimum est trouvé, a_renforcer doit être réini
 starter:`#############################################################################
 # Fonction défaillante à analyser et corriger pour la question 3            #
 #############################################################################
+
 def extraire_cartes_a_renforcer(paquet):
-if len(paquet) == 0:
-return []
-niveau_min = paquet[0].niveau
-a_renforcer = []
-for carte in paquet:
-if carte.niveau < niveau_min:
-niveau_min = carte.niveau
-a_renforcer.append(carte)   # BUG : devrait réinitialiser
-elif carte.niveau == niveau_min:
-a_renforcer.append(carte)
-return a_renforcer
+    if len(paquet) == 0:
+        return []
+    niveau_min = paquet[0].niveau
+    a_renforcer = []
+    for carte in paquet:
+        if carte.niveau < niveau_min:
+            niveau_min = carte.niveau
+            a_renforcer.append(carte)   # BUG : devrait réinitialiser
+        elif carte.niveau == niveau_min:
+            a_renforcer.append(carte)
+    return a_renforcer
+
 # Analyser et corriger :`,
 answer_keywords:["a_renforcer = [carte]","réinitialiser","nouveau minimum","niveau_min","[carte]","corriger"],
 correction:`Bug : quand une carte de niveau plus bas est trouvée, a_renforcer n'est pas réinitialisée.
@@ -2409,14 +2547,16 @@ starter:`#######################################################################
 # Question 1 et 2 : Écrire les codes des fonctions bin2dec et qrcode2dec
 #              Proposer un test de qrcode2dec
 #############################################################################
+
+
 # implémentation du QR Code de la figure 1:
 qrcode_fig1 = ascii.figure1`,
 answer_keywords:["2**","len(t)","range(len(t))","t[i]","n +=","return n","M.Hara","97"],
 correction:`def bin2dec(t):
-n = 0
-for i in range(len(t)):
-n += t[i]*2 ** (len(t)-i-1)
-return n
+    n = 0
+    for i in range(len(t)):
+        n += t[i]*2 ** (len(t)-i-1)
+    return n
 # La chaîne est "M.Hara"`
 },
 {id:"22-2",num:2,type:"code",
@@ -2424,27 +2564,28 @@ text:`<strong>Question 2 :</strong> Écrire <code>qrcode2dec(qrcode)</code> → 
 hint:"Parcourir qrcode et appliquer bin2dec à chaque tuple.",
 starter:`# (même section que question 1)
 def qrcode2dec(qrcode):
-'''
-renvoie une liste d'entiers décimaux correspondant à chacune des lignes du qrcode
-'''
-pass`,
+    '''
+    renvoie une liste d'entiers décimaux correspondant à chacune des lignes du qrcode
+    '''
+    pass`,
 answer_keywords:["bin2dec","for ligne","liste_resultat.append","return liste_resultat","== [77"],
 correction:`def qrcode2dec(qrcode):
-liste_resultat = []
-for ligne in qrcode:
-liste_resultat.append(bin2dec(ligne))
-return liste_resultat`
+    liste_resultat = []
+    for ligne in qrcode:
+        liste_resultat.append(bin2dec(ligne))
+    return liste_resultat`
 },
 {id:"22-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> <code>test_dec2str()</code> produit <code>KeyError: 233</code>. Identifier et corriger.`,
 hint:"dict_ascii ne contient que les clés 0-127. Si l'entier > 127 → KeyError.",
 starter:`# La fonction bugguée :
 def dec2str(liste_dec):
-table_ascii = ascii.dict_ascii
-chaine = ""
-for entier in liste_dec:
-chaine += table_ascii[entier]  # BUG si entier > 127
-return chaine
+    table_ascii = ascii.dict_ascii
+    chaine = ""
+    for entier in liste_dec:
+        chaine += table_ascii[entier]  # BUG si entier > 127
+    return chaine
+
 # Pourquoi l'erreur ? Comment corriger ?`,
 answer_keywords:["127","KeyError","0 <= entier","<= 127","remplacement","□","else","if"],
 correction:`Bug : KeyError car dict_ascii n'a de clés que de 0 à 127.
@@ -2455,14 +2596,15 @@ text:`<strong>Question 4 :</strong> <code>str2qrcode("M.Hara")</code> retourne d
 hint:"bin(77) donne '0b1001101' → 7 bits sans zéro initial. Il faut zfill(8).",
 starter:`# La fonction bugguée :
 def str2qrcode(message):
-qrcode = []
-table_inverse = {valeur: cle for cle, valeur in ascii.dict_ascii.items()}
-for caractere in message:
-entier = table_inverse.get(caractere, 63)
-binaire_str = bin(entier)[2:]      # BUG : pas de padding à 8 bits
-ligne = tuple(int(bit) for bit in binaire_str)
-qrcode.append(ligne)
-return qrcode
+    qrcode = []
+    table_inverse = {valeur: cle for cle, valeur in ascii.dict_ascii.items()}
+    for caractere in message:
+        entier = table_inverse.get(caractere, 63)
+        binaire_str = bin(entier)[2:]      # BUG : pas de padding à 8 bits
+        ligne = tuple(int(bit) for bit in binaire_str)
+        qrcode.append(ligne)
+    return qrcode
+
 # Pourquoi le problème ? Correction :`,
 answer_keywords:["zfill(8)","8 bits","padding","0 à gauche","8-len","len(binaire","'0'*"],
 correction:`Bug : bin(entier)[2:] donne la représentation minimale sans zéros initiaux.
@@ -2480,34 +2622,36 @@ questions:[
 text:`<strong>Question 1 :</strong> Implémenter <code>decoder_temperature(self)</code> et <code>decoder_humidite(self)</code>. Test : trame exemple → 26.4°C, 62%.`,
 hint:"Température : int(self._trame[16:28], 2) - 900) / 10. Humidité BCD : 2 chiffres de 4 bits.",
 starter:`    def decoder_temperature(self):
-pass  # À compléter
-def decoder_humidite(self):
-pass  # À compléter`,
+        pass  # À compléter
+
+    def decoder_humidite(self):
+        pass  # À compléter`,
 answer_keywords:["int(self._trame","16:28","900","/ 10","28:36","[:4]","[4:]","* 10","== 26.4"],
 correction:`def decoder_temperature(self):
-temp_binaire=int(self._trame[16:28], 2)
-self._temperature = (temp_binaire - 900) / 10
+    temp_binaire=int(self._trame[16:28], 2)
+    self._temperature = (temp_binaire - 900) / 10
+
 def decoder_humidite(self):
-humidite_dcb = self._trame[28:36]
-self._humidite = int(humidite_dcb[:4], 2)*10 + int(humidite_dcb[4:], 2)`
+    humidite_dcb = self._trame[28:36]
+    self._humidite = int(humidite_dcb[:4], 2)*10 + int(humidite_dcb[4:], 2)`
 },
 {id:"23-2",num:2,type:"code",
 text:`<strong>Question 2 :</strong> Écrire <code>est_valide(self)</code> → True si les 4 bits de contrôle correspondent à la parité de chaque bloc.`,
 hint:"Pour chaque bloc : compter les '1'. Si impair → bit de parité = 1, si pair → 0.",
 starter:`    def est_valide(self):
-return False  # À compléter`,
+        return False  # À compléter`,
 answer_keywords:["parite","nb_un","% 2","blocs","bits_controle","36:40","return False","return True"],
 correction:`def est_valide(self):
-blocs_trame = [self._trame[0:8], self._trame[8:16], self._trame[16:28], self._trame[28:36]]
-bits_controle = self._trame[36:40]
-for i in range(4):
-nombre_de_1 = 0
-for bit in blocs_trame[i]:
-if bit == '1':
-nombre_de_1 += 1
-if nombre_de_1 % 2 != int(bits_controle[i]):
-return False
-return True`
+    blocs_trame = [self._trame[0:8], self._trame[8:16], self._trame[16:28], self._trame[28:36]]
+    bits_controle = self._trame[36:40]
+    for i in range(4):
+        nombre_de_1 = 0
+        for bit in blocs_trame[i]:
+            if bit == '1':
+                nombre_de_1 += 1
+        if nombre_de_1 % 2 != int(bits_controle[i]):
+            return False
+    return True`
 },
 {id:"23-3",num:3,type:"text",
 text:`<strong>Question 3 :</strong> En analysant <code>data.txt</code>, identifier l'erreur lors de l'exécution de <code>analyse.py</code>.`,
@@ -2522,29 +2666,31 @@ Solution : vérifier len(self._trame) == 40 et retourner False si incorrect.`
 text:`<strong>Question 4 :</strong> Proposer une version robuste du constructeur et de <code>est_valide</code> pour gérer les trames de longueur incorrecte.`,
 hint:"Dans __init__, vérifier len(trame) == 40 avant d'appeler decoder().",
 starter:`    def __init__(self, trame):
-self._id = None
-self._temperature = None
-self._humidite = None
-self._trame = trame
-self.decoder()`,
+        self._id = None
+        self._temperature = None
+        self._humidite = None
+        self._trame = trame
+
+        self.decoder()`,
 answer_keywords:["len(trame) == 40","len(self._trame) != 40","if len","decoder()","return False","40"],
 correction:`def __init__(self, trame):
-self._id = None
-self._temperature = None
-self._humidite = None
-self._trame = trame
-if len(trame) == 40:
-self.decoder()
+    self._id = None
+    self._temperature = None
+    self._humidite = None
+    self._trame = trame
+    if len(trame) == 40:
+        self.decoder()
+
 def est_valide(self):
-if len(self._trame) != 40:
-return False
-blocs_trame = [self._trame[0:8], self._trame[8:16], self._trame[16:28], self._trame[28:36]]
-bits_controle = self._trame[36:40]
-for i in range(4):
-nb = sum(1 for bit in blocs_trame[i] if bit == '1')
-if nb % 2 != int(bits_controle[i]):
-return False
-return True`
+    if len(self._trame) != 40:
+        return False
+    blocs_trame = [self._trame[0:8], self._trame[8:16], self._trame[16:28], self._trame[28:36]]
+    bits_controle = self._trame[36:40]
+    for i in range(4):
+        nb = sum(1 for bit in blocs_trame[i] if bit == '1')
+        if nb % 2 != int(bits_controle[i]):
+            return False
+    return True`
 }
 ]
 }
@@ -2929,4 +3075,4 @@ renderGrid();
 if (state.currentSubject) selectSubject(state.currentSubject);
 </script>
 </body>
-</html> 
+</html>
