@@ -377,12 +377,12 @@ function animateConf(){ctx2d.clearRect(0,0,canvas.width,canvas.height);confetti=
 let streakTimer;
 function showStreak(msg,emoji='🔥'){const b=document.getElementById('streak-banner');b.textContent=`${emoji} ${msg}`;b.classList.add('show');clearTimeout(streakTimer);streakTimer=setTimeout(()=>b.classList.remove('show'),2200)}
 let totalQuestions=0;
-function getCompletedCount(){
-let count = 0;
-for (const qid in state.answered) {
-if (state.answered[qid].correct === true) count++;
-}
-return count;
+function getCompletedCount(){ 
+    let count = 0;
+    for (const qid in state.answered) {
+        if (state.answered[qid].correct === true) count++;
+    }
+    return count; 
 }
 function updateScoreDisplay(){
 const completed = getCompletedCount();
@@ -415,52 +415,6 @@ state.answered=data.answered;
 if(typeof data.currentSubject==='number') state.currentSubject=data.currentSubject;
 }catch(e){}
 }
-
-// =====================================================
-// ANTI-RATE LIMITING AI GRADING SYSTEM
-// =====================================================
-
-// Cache pour éviter de re-demander la même question
-const aiCache = new Map();
-let modelRotationIndex = 0;
-let requestCounter = 0;
-const lastRequestTime = new Map();
-
-// Liste de modèles pour rotation
-const AI_MODELS = [
-'openai/gpt-4o-mini',
-'openai/gpt-4o',
-'anthropic/claude-3-5-sonnet',
-'anthropic/claude-3-5-haiku',
-'google/gemini-1.5-flash',
-'google/gemini-1.5-pro',
-'meta-llama/llama-3.1-70b-instruct',
-'meta-llama/llama-3.1-8b-instruct',
-'mistral/mistral-large',
-'mistral/mistral-medium'
-];
-
-// Générer un hash simple pour le cache
-function simpleHash(str) {
-let hash = 0;
-for (let i = 0; i < str.length; i++) {
-const char = str.charCodeAt(i);
-hash = ((hash << 5) - hash) + char;
-hash = hash & hash;
-}
-return hash.toString();
-}
-
-// Délai aléatoire entre les requêtes
-function getRandomDelay() {
-return Math.floor(Math.random() * 2000) + 1000; // 1-3 secondes
-}
-
-// Backoff exponentiel en cas d'erreur
-function getBackoffDelay(attempt) {
-return Math.min(Math.pow(2, attempt) * 1000 + Math.random() * 1000, 30000);
-}
-
 async function gradeAnswerWithAI(q, userAnswer) {
 const plainQuestion = q.text
 .replace(/<code>(.*?)<\/code>/g, '`$1`')
@@ -470,16 +424,6 @@ const plainQuestion = q.text
 .replace(/<[^>]+>/g, '')
 .replace(/\s+/g, ' ')
 .trim();
-
-// Créer une clé de cache unique
-const cacheKey = simpleHash(plainQuestion + userAnswer);
-
-// Vérifier le cache
-if (aiCache.has(cacheKey)) {
-console.log('Cache hit for question');
-return aiCache.get(cacheKey);
-}
-
 const prompt = `You are an expert automatic grader for a French high school computer science exam (NSI Terminale, BNS 2026).
 
 QUESTION (${q.type === 'code' ? 'Python code' : 'written explanation'}):
@@ -500,33 +444,15 @@ GRADING RULES:
 
 Respond with EXACTLY ONE WORD: YES if correct, NO if incorrect.
 Do NOT add any explanation, punctuation, or additional text. Just YES or NO.`;
-
-let maxRetries = 5;
-let attempt = 0;
-
-while (attempt < maxRetries) {
 try {
 if (typeof puter === 'undefined' || !puter.ai || !puter.ai.chat) {
 throw new Error('Puter AI not available');
 }
-
-// Sélectionner un modèle en rotation
-const selectedModel = AI_MODELS[modelRotationIndex % AI_MODELS.length];
-modelRotationIndex++;
-
-// Ajouter un délai aléatoire pour éviter le rate limiting
-const delay = getRandomDelay();
-await new Promise(resolve => setTimeout(resolve, delay));
-
-console.log(`Using model: ${selectedModel}, attempt ${attempt + 1}`);
-
 const timeout = new Promise((_, reject) =>
-setTimeout(() => reject(new Error('AI grading timeout')), 45000)
+setTimeout(() => reject(new Error('AI grading timeout')), 30000)
 );
-
-const aiCall = puter.ai.chat(prompt, { model: selectedModel });
+const aiCall = puter.ai.chat(prompt);
 const response = await Promise.race([aiCall, timeout]);
-
 let text = '';
 if (typeof response === 'string') {
 text = response;
@@ -537,53 +463,22 @@ text = response.text;
 } else {
 text = String(response);
 }
-
 const upper = text.toUpperCase().trim();
 const isYes = /\bYES\b/.test(upper);
 const isNo = /\bNO\b/.test(upper);
-
-let result;
 if (isYes && !isNo) {
-result = { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
+return { correct: true, feedback: 'Corrected by AI ✓', source: 'ai' };
 } else if (isNo) {
-result = { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
+return { correct: false, feedback: 'AI judged this answer incorrect.', source: 'ai' };
 } else {
-throw new Error('Unclear AI response');
+console.warn('AI returned unclear response:', text);
+return fallbackGrade(q, userAnswer);
 }
-
-// Mettre en cache le résultat
-aiCache.set(cacheKey, result);
-
-// Limiter la taille du cache
-if (aiCache.size > 100) {
-const firstKey = aiCache.keys().next().value;
-aiCache.delete(firstKey);
-}
-
-return result;
-
 } catch (err) {
-attempt++;
-console.warn(`AI grading attempt ${attempt} failed:`, err.message);
-
-if (attempt >= maxRetries) {
-console.warn('Max retries reached, using fallback');
+console.warn('AI grading failed, using fallback:', err);
 return fallbackGrade(q, userAnswer);
 }
-
-// Backoff exponentiel
-const backoffDelay = getBackoffDelay(attempt);
-console.log(`Waiting ${backoffDelay}ms before retry...`);
-await new Promise(resolve => setTimeout(resolve, backoffDelay));
-
-// Changer de modèle pour la prochaine tentative
-modelRotationIndex++;
 }
-}
-
-return fallbackGrade(q, userAnswer);
-}
-
 function fallbackGrade(q, userAnswer) {
 if (!userAnswer || userAnswer.trim().length < 5) {
 return { correct: false, feedback: 'Réponse trop courte ou vide. (Fallback mode)', source: 'fallback' };
@@ -601,7 +496,6 @@ const feedback = correct
 : `[Fallback] Seulement ${hits}/${keywords.length} mots-clés.`;
 return { correct, feedback, source: 'fallback' };
 }
-
 const PY_KW = ['def','class','if','elif','else','for','while','return','import','from','as','in','not','and','or','is','None','True','False','pass','break','continue','try','except','finally','with','lambda','yield','global','nonlocal','assert','raise','del','async','await'];
 const PY_BI = ['print','len','range','int','str','float','list','dict','set','tuple','bool','type','input','open','round','abs','min','max','sum','sorted','enumerate','zip','map','filter','isinstance','hasattr','getattr','setattr','super','iter','next','reversed','any','all','chr','ord','hex','oct','bin','id','hash','repr','format','vars','dir','help','callable','staticmethod','classmethod','property','object','Exception','ValueError','TypeError','KeyError','IndexError','RuntimeError','StopIteration','ArithmeticError','ZeroDivisionError','FileNotFoundError','IOError','OSError','sqrt'];
 function escapeHtml(s){
@@ -2839,9 +2733,9 @@ html += `</div></div>
 ${pdfPanelHTML}
 </div>
 <div style="margin-top:30px; text-align:center; padding-bottom:20px; width:100%;">
-<button class="btn btn-reset" onclick="resetSubjectProgress(${id})" style="background:transparent;color:var(--r);border-color:var(--r);padding:10px 24px;font-size:.85rem;">
-↺ Réinitialiser la progression de ce sujet
-</button>
+    <button class="btn btn-reset" onclick="resetSubjectProgress(${id})" style="background:transparent;color:var(--r);border-color:var(--r);padding:10px 24px;font-size:.85rem;">
+        ↺ Réinitialiser la progression de ce sujet
+    </button>
 </div>`;
 el.innerHTML = html;
 setTimeout(() => {
@@ -3052,16 +2946,16 @@ saveState();
 renderGrid();
 }
 function resetSubjectProgress(subjectId) {
-if (!confirm('Voulez-vous vraiment réinitialiser votre progression pour ce sujet ?')) return;
-const subject = SUBJECTS.find(s => s.id === subjectId);
-if (!subject) return;
-subject.questions.forEach(q => {
-delete state.answered[q.id];
-});
-saveState();
-updateScoreDisplay();
-renderGrid();
-selectSubject(subjectId);
+    if (!confirm('Voulez-vous vraiment réinitialiser votre progression pour ce sujet ?')) return;
+    const subject = SUBJECTS.find(s => s.id === subjectId);
+    if (!subject) return;
+    subject.questions.forEach(q => {
+        delete state.answered[q.id];
+    });
+    saveState();
+    updateScoreDisplay();
+    renderGrid();
+    selectSubject(subjectId);
 }
 document.addEventListener('keydown',function(e){
 if(e.key==='Tab'&&document.activeElement.tagName==='TEXTAREA'){
